@@ -1,0 +1,12 @@
+{
+  "application_id": "sample-application-001",
+  "job_id": "sample-job-001",
+  "resume_id": "sample-resume-001",
+  "full_name": "Alex Morgan",
+  "email": "alex.morgan@example.com",
+  "application_date": "2026-01-01T10:00:00Z",
+  "resume": {
+    "format": "text",
+    "content": "Alex Morgan\nEmail: alex.morgan@example.com\nEducation: Bachelor of Business Administration, Example College, 2025.\nProject: Campus Expense Report, 2025.\nUsed Excel formulas and pivot tables to summarize 200 expense records and create a monthly spending report.\nSkills: Excel, data cleaning, expense reporting."
+  }
+}

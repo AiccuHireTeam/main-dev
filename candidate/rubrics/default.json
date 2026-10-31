@@ -1,0 +1,142 @@
+{
+  "rubric_id": "default_resume_match",
+  "version": "1.0.0",
+  "status": "template",
+  "description": "Generic scoring configuration; instantiate and publish a job-specific rubric before ranking.",
+  "criteria": [],
+  "criterion_contract": {
+    "required_fields": ["id", "category", "description", "acceptance_criteria", "designation", "aliases", "weight"],
+    "field_types": {
+      "id": "string",
+      "category": "string",
+      "description": "string",
+      "acceptance_criteria": "array[string]",
+      "designation": "string",
+      "aliases": "array[string]",
+      "weight": "number"
+    },
+    "defaults": {"designation": "preferred", "aliases": [], "weight": 1},
+    "allowed_designations": ["required", "preferred"],
+    "required_designation_source": "explicit_position_requirement",
+    "validation": {
+      "nonempty_id": true,
+      "unique_ids": true,
+      "nonempty_description": true,
+      "acceptance_criteria_min_items": 1,
+      "acceptance_criteria_items_nonempty": true,
+      "weight_finite": true,
+      "weight_exclusive_minimum": 0,
+      "category_must_be_configured_and_enabled": true,
+      "deduplicate_equivalent_requirements": true,
+      "one_scoring_category_per_canonical_criterion": true
+    }
+  },
+  "categories": [
+    {
+      "id": "skill",
+      "position_field": "Skill",
+      "definition": "A learned or developed ability to apply knowledge, methods, or tools to perform a task or achieve an outcome.",
+      "requires_supplied_definition": false,
+      "requires_job_criteria": true
+    },
+    {
+      "id": "personality_merge",
+      "position_field": "Personality Merge",
+      "definition": "Personality generally means characteristic patterns of thinking, feeling, and behaving. In this rubric, assess only demonstrated work behaviors relevant to the role, such as collaboration, communication, or response to feedback; do not infer personality traits from a resume.",
+      "requires_supplied_definition": false,
+      "requires_job_criteria": true,
+      "definition_constraint": "observable_work_behavior_only"
+    },
+    {
+      "id": "outlier_skill",
+      "position_field": "Outlier Skill",
+      "definition": "A distinctive capability beyond a role’s core requirements that can provide additional, relevant value. Job-specific criteria must identify the capability and its value; do not assume rarity or award credit merely for being unusual.",
+      "requires_supplied_definition": false,
+      "requires_job_criteria": true
+    },
+    {
+      "id": "conjugate_skill",
+      "position_field": "Conjugate Skill",
+      "definition": "A complementary ability that strengthens the practical use or effectiveness of another skill when the two are used together. Job-specific criteria must identify the paired skills and the value of their combined use.",
+      "requires_supplied_definition": false,
+      "requires_job_criteria": true
+    },
+    {
+      "id": "management_skill",
+      "position_field": "Management Skill",
+      "definition": "Listed management requirements evidenced by concrete responsibilities or projects.",
+      "requires_supplied_definition": false,
+      "requires_job_criteria": true
+    }
+  ],
+  "category_policy": {
+    "undefined_or_empty_status": "unconfigured",
+    "explicit_disable_supported": true,
+    "excluded_statuses": ["unconfigured", "disabled"],
+    "excluded_score": null,
+    "excluded_weight_contribution": 0,
+    "missing_candidate_evidence_disables_category": false
+  },
+  "evidence_statuses": {
+    "supported": {"credit": 1.0, "rule": "Cited evidence satisfies all acceptance conditions."},
+    "partially_supported": {"credit": 0.5, "rule": "Cited evidence satisfies only part of the acceptance conditions."},
+    "not_evidenced": {"credit": 0.0, "rule": "Successfully processed application material supplies no supporting evidence."},
+    "conflicting_or_unresolved": {"credit": null, "rule": "Material ambiguity requires review; block ranking until resolved."}
+  },
+  "evidence_policy": {
+    "explicit_and_indirect_equal_credit": true,
+    "indirect_evidence_requires": "Relevant actions, responsibilities, projects, or outcomes.",
+    "keyword_repetition_bonus": 0,
+    "skill_claim_limitation": "A simple claim can establish knowledge, but not proficiency or experience duration without supporting evidence.",
+    "validate_quotes_and_source_references": true,
+    "fabricated_citations_allowed": false,
+    "prohibited_inferences": ["personality_traits", "health", "protected_characteristics", "cultural_fit"],
+    "missing_evidence_meaning": "Not evidenced in the application; not proof of inability.",
+    "processing_failure_is_missing_evidence": false
+  },
+  "scoring": {
+    "method": "weighted_requirement_coverage",
+    "formula": "100 * sum(weight * credit) / sum(weight)",
+    "range": [0, 100],
+    "scope": "enabled_canonical_criteria",
+    "category_method": "same_formula_within_category",
+    "additional_category_multiplier": false,
+    "missing_evidence_in_denominator": true,
+    "unresolved_criteria_may_be_dropped": false,
+    "ranking_uses_unrounded_score": true,
+    "display_decimal_places": 2,
+    "required_gap_statuses": ["partially_supported", "not_evidenced", "conflicting_or_unresolved"],
+    "required_gaps_reported_separately": true,
+    "required_gap_extra_penalty": 0,
+    "automatic_rejection": false
+  },
+  "result_policy": {
+    "unpublished_or_no_scorable_criteria": {"status": "waiting_for_rubric", "overall_score": null, "ranking_eligible": false},
+    "unresolved_evidence_or_incomplete_parsing": {"status": "needs_review", "overall_score": null, "affected_category_score": null, "ranking_eligible": false, "retain_resolved_criterion_results": true},
+    "processing_failure": {"status_source": "service_failure_state", "overall_score": null, "ranking_eligible": false},
+    "complete_resolved_published_assessment": {"status": "completed", "score_source": "scoring.formula", "ranking_eligible": true}
+  },
+  "lifecycle": {
+    "instantiation_status": "draft",
+    "criteria_source": "applied_position",
+    "recruiter_publication_required": true,
+    "published_versions_immutable": true,
+    "assessment_records": ["template_id", "template_version", "published_rubric_id", "published_rubric_version", "job_snapshot", "assessment_configuration", "criterion_evidence"],
+    "comparison_requires_same": ["company", "job_snapshot", "published_rubric", "assessment_configuration"],
+    "assessment_configuration_includes": ["model_version", "prompt_versions", "scoring_version"]
+  },
+  "worked_example": {
+    "weights": [1, 1, 1, 1],
+    "credits": [1, 1, 0.5, 0],
+    "expected_score": 62.5,
+    "one_supported_changed_to_not_evidenced_score": 37.5,
+    "disabled_category_added_score": 62.5,
+    "any_enabled_criterion_unresolved_overall_score": null,
+    "any_enabled_criterion_unresolved_ranking_eligible": false
+  },
+  "assumptions": [
+    "No job-specific criteria are supplied by this template.",
+    "Equal weighting is configurable and is not an empirically validated predictor of hiring success.",
+    "This file describes configuration and validation rules; it does not implement a scoring engine or JSON Schema validator."
+  ]
+}
