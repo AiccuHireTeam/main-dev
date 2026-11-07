@@ -1,0 +1,28 @@
+kind = "web"
+previewPath = "/"
+title = "Talent Hiring Portal"
+description = "A hiring workflow prototype with role-specific sign-in for candidates, stakeholders, admins, hiring managers, and HR. Candidates track applications and take job actions; stakeholders provide requested input; internal users open a dashboard."
+version = "1.0.0"
+id = "artifacts/talent-hiring-portal"
+router = "path"
+
+[[services]]
+name = "web"
+paths = [ "/" ]
+localPort = 19423
+
+[services.development]
+run = "pnpm --filter @workspace/talent-hiring-portal run dev"
+
+[services.production]
+build = [ "pnpm", "--filter", "@workspace/talent-hiring-portal", "run", "build" ]
+serve = "static"
+publicDir = "artifacts/talent-hiring-portal/dist/public"
+
+[[services.production.rewrites]]
+from = "/*"
+to = "/index.html"
+
+[services.env]
+PORT = "19423"
+BASE_PATH = "/"
