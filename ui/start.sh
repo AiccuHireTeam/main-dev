@@ -7,7 +7,7 @@ export PATH="/Users/sabyasachisengupta/.nvm/versions/node/v24.15.0/bin:$PATH"
 cd "$(dirname "$0")" || exit 1
 
 echo "========================================================"
-echo "🚀 Starting AICC U Hire Workspace Applications..."
+echo "🚀 Starting AICCU Hire Workspace Applications..."
 echo "========================================================"
 
 # Function to clean up background processes on Ctrl+C / EXIT

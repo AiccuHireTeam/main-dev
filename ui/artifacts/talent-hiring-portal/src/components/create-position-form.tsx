@@ -3,29 +3,40 @@ import {
   ArrowRight,
   BriefcaseBusiness,
   CalendarDays,
+  FileText,
   Flag,
+  LoaderCircle,
   MapPin,
   Plus,
   Sparkles,
+  Upload,
   X,
 } from 'lucide-react';
 import { useState, type FormEvent } from 'react';
+import { readJobDescriptionDocument } from '@/lib/read-job-description-document';
 
 export type PositionFormValues = {
   requisitionId: string;
   position: string;
   hiringManager: string;
-  positionType: 'New' | 'Replacement';
+  positionType: 'New' | 'Replacement' | '';
+  jobType: 'Full Time' | 'Contract' | '';
+  contractDurationMonths: string;
+  benefits: string[];
   department: string;
   priority: string;
   salaryGrade: string;
+  salaryRange: string;
   location: string;
   stakeholders: string[];
   jobPostingDeadline: string;
   recruitmentDeadline: string;
   job: string;
+  jobDescriptionFileName: string;
+  jobDescriptionDocumentData: string;
   skill: string;
   capability: string;
+  personality: string;
   additionalRole: string;
   verticalGrowth: string;
   otherDetails: string;
@@ -41,7 +52,12 @@ type CreatePositionPageProps = {
 
 type TextFormField = Exclude<
   keyof PositionFormValues,
-  'requisitionId' | 'positionType' | 'stakeholders'
+  | 'requisitionId'
+  | 'positionType'
+  | 'jobType'
+  | 'benefits'
+  | 'jobDescriptionDocumentData'
+  | 'stakeholders'
 >;
 
 export function createRequisitionId() {
@@ -57,17 +73,24 @@ function createEmptyValues(): PositionFormValues {
     requisitionId: createRequisitionId(),
     position: '',
     hiringManager: '',
-    positionType: 'New',
-    department: 'General',
+    positionType: '',
+    jobType: '',
+    contractDurationMonths: '',
+    benefits: [...benefitOptions],
+    department: '',
     priority: 'Medium',
     salaryGrade: '',
+    salaryRange: '',
     location: '',
     stakeholders: [],
     jobPostingDeadline: '',
     recruitmentDeadline: '',
     job: '',
+    jobDescriptionFileName: '',
+    jobDescriptionDocumentData: '',
     skill: '',
     capability: '',
+    personality: '',
     additionalRole: '',
     verticalGrowth: '',
     otherDetails: '',
@@ -79,44 +102,19 @@ const controlClass =
 const labelClass = 'mb-1.5 block text-[11px] font-semibold text-[#50635d]';
 const sectionClass =
   'rounded-2xl border border-[#e4e2d9] bg-[#fcfbf7] p-5 shadow-[0_8px_22px_rgba(31,59,54,.045)] sm:p-7';
-const descriptionFields = [
-  {
-    key: 'job',
-    label: 'Job',
-    helper: 'Responsibilities and scope of the role.',
-    placeholder: 'Describe the day-to-day responsibilities...',
-  },
-  {
-    key: 'skill',
-    label: 'Skill',
-    helper: 'Technical or functional skills required.',
-    placeholder: 'List the required skills...',
-  },
-  {
-    key: 'capability',
-    label: 'Capability',
-    helper: 'Behavioral or leadership capabilities expected.',
-    placeholder: 'Describe expected capabilities...',
-  },
-  {
-    key: 'additionalRole',
-    label: 'Additional Role',
-    helper: 'Optional — include any secondary responsibilities or role coverage.',
-    placeholder: 'Describe any additional role responsibilities...',
-  },
-  {
-    key: 'verticalGrowth',
-    label: 'Vertical Growth',
-    helper: 'Optional — describe growth opportunities and progression for this role.',
-    placeholder: 'Describe the expected growth path...',
-  },
-  {
-    key: 'otherDetails',
-    label: 'Other Details',
-    helper: 'Optional — add any other context hiring managers should review.',
-    placeholder: 'Add any other details about this position...',
-  },
-] as const;
+const contractDurations = ['3', '6', '12', '18'] as const;
+const maxJobDescriptionFileBytes = 1024 * 1024;
+const benefitOptions = [
+  'Health insurance',
+  'Dental coverage',
+  'Vision coverage',
+  '401(k) retirement plan',
+  'Paid time off',
+  'Paid parental leave',
+  'Life insurance',
+  'Disability coverage',
+  'Flexible work arrangement',
+];
 const departments = [
   'General',
   'Engineering',
@@ -142,15 +140,158 @@ export function CreatePositionPage({
   const [values, setValues] = useState<PositionFormValues>(() => ({
     ...createEmptyValues(),
     ...(initialValues ?? {}),
+    jobType: initialValues?.jobType ?? 'Full Time',
+    contractDurationMonths: initialValues?.contractDurationMonths ?? '',
+    benefits: [
+      ...(initialValues?.benefits?.length
+        ? initialValues.benefits
+        : benefitOptions),
+    ],
+    jobDescriptionFileName: initialValues?.jobDescriptionFileName ?? '',
+    jobDescriptionDocumentData:
+      initialValues?.jobDescriptionDocumentData ?? '',
     stakeholders: [...(initialValues?.stakeholders ?? [])],
   }));
   const [validationMessage, setValidationMessage] = useState('');
   const [stakeholderEntry, setStakeholderEntry] = useState('');
   const [stakeholderError, setStakeholderError] = useState('');
+  const [uploadError, setUploadError] = useState('');
+  const [extractionNotice, setExtractionNotice] = useState('');
+  const [isExtracting, setIsExtracting] = useState(false);
+  const [contractDurationOpen, setContractDurationOpen] = useState(
+    () => values.jobType === 'Contract' && !values.contractDurationMonths,
+  );
+  const [contractDurationChoice, setContractDurationChoice] = useState(() =>
+    contractDurations.includes(
+      values.contractDurationMonths as (typeof contractDurations)[number],
+    )
+      ? values.contractDurationMonths
+      : values.contractDurationMonths
+        ? 'other'
+        : '',
+  );
+  const [contractDurationError, setContractDurationError] = useState('');
 
   const updateText = (key: TextFormField, value: string) => {
     setValues((current) => ({ ...current, [key]: value }));
     setValidationMessage('');
+  };
+
+  const updateJobType = (jobType: PositionFormValues['jobType']) => {
+    setValues((current) => ({
+      ...current,
+      jobType,
+      contractDurationMonths:
+        jobType === 'Contract' ? current.contractDurationMonths : '',
+    }));
+    setValidationMessage('');
+    if (jobType === 'Contract') {
+      setContractDurationChoice((current) => current || '');
+      setContractDurationError('');
+      setContractDurationOpen(true);
+    } else {
+      setContractDurationChoice('');
+      setContractDurationError('');
+      setContractDurationOpen(false);
+    }
+  };
+
+  const applyContractDuration = () => {
+    const duration = values.contractDurationMonths.trim();
+    if (!/^[1-9]\d*$/.test(duration)) {
+      setContractDurationError(
+        'Enter a whole number greater than zero. The value is in months.',
+      );
+      return;
+    }
+    setContractDurationError('');
+    setContractDurationOpen(false);
+    setValidationMessage('');
+  };
+
+  const attachJobDescription = async (file: File | undefined) => {
+    if (!file) return;
+    if (!/\.(pdf|docx|txt)$/i.test(file.name)) {
+      setUploadError('Choose a searchable PDF, DOCX, or plain text document.');
+      return;
+    }
+    if (file.size > maxJobDescriptionFileBytes) {
+      setUploadError('The document must be 1 MB or smaller.');
+      return;
+    }
+
+    setIsExtracting(true);
+    setUploadError('');
+    setExtractionNotice('');
+    try {
+      const [document, dataUrl] = await Promise.all([
+        readJobDescriptionDocument(file),
+        new Promise<string>((resolve, reject) => {
+          const reader = new FileReader();
+          reader.onload = () =>
+            typeof reader.result === 'string'
+              ? resolve(reader.result)
+              : reject(new Error('The document could not be saved.'));
+          reader.onerror = () =>
+            reject(new Error('The document could not be saved.'));
+          reader.readAsDataURL(file);
+        }),
+      ]);
+      const { fields } = document;
+      setValues((current) => ({
+        ...current,
+        position: fields.position ?? '',
+        hiringManager: fields.hiringManager ?? '',
+        positionType: fields.positionType ?? 'New',
+        jobType: fields.jobType ?? '',
+        contractDurationMonths: fields.contractDurationMonths ?? '',
+        department: fields.department ?? '',
+        priority: fields.priority ?? '',
+        salaryGrade: fields.salaryGrade ?? '',
+        location: fields.location ?? '',
+        stakeholders: fields.stakeholders ?? [],
+        jobPostingDeadline: fields.jobPostingDeadline ?? '',
+        recruitmentDeadline: fields.recruitmentDeadline ?? '',
+        job: fields.job ?? '',
+        jobDescriptionFileName: file.name,
+        jobDescriptionDocumentData: dataUrl.replace(
+          /^[^,]*,/,
+          'data:application/octet-stream;base64,',
+        ),
+        skill: '',
+        capability: '',
+        additionalRole: '',
+        verticalGrowth: '',
+        otherDetails: '',
+      }));
+      const duration = fields.contractDurationMonths ?? '';
+      const durationChoice = contractDurations.includes(
+        duration as (typeof contractDurations)[number],
+      )
+        ? duration
+        : duration
+          ? 'other'
+          : '';
+      setContractDurationChoice(durationChoice);
+      setContractDurationOpen(fields.jobType === 'Contract' && !duration);
+      setContractDurationError('');
+      setUploadError('');
+      setValidationMessage('');
+      const matchedCount = Object.values(fields).filter((value) =>
+        Array.isArray(value) ? value.length > 0 : Boolean(value),
+      ).length;
+      setExtractionNotice(
+        `${matchedCount} detail${matchedCount === 1 ? '' : 's'} extracted. Review and edit the form before creating the position; unmatched details were left blank.`,
+      );
+    } catch (error) {
+      setUploadError(
+        error instanceof Error
+          ? error.message
+          : 'This document could not be read. Try another file.',
+      );
+    } finally {
+      setIsExtracting(false);
+    }
   };
 
   const addStakeholders = (rawValue = stakeholderEntry) => {
@@ -193,6 +334,21 @@ export function CreatePositionPage({
         'Enter a position and hiring manager to create this requisition.',
       );
       document.getElementById(missing)?.focus();
+      return;
+    }
+    if (!values.jobType) {
+      setValidationMessage('Select a job type before creating this position.');
+      document.getElementById('job-type')?.focus();
+      return;
+    }
+    if (
+      values.jobType === 'Contract' &&
+      !/^[1-9]\d*$/.test(values.contractDurationMonths.trim())
+    ) {
+      setValidationMessage(
+        'Enter a whole number of months for the contract duration.',
+      );
+      setContractDurationOpen(true);
       return;
     }
 
@@ -238,6 +394,84 @@ export function CreatePositionPage({
       )}
 
       <form onSubmit={handleSubmit} noValidate className="space-y-5">
+        <section className={sectionClass}>
+          <div className="mb-4 flex items-start gap-3">
+            <div className="grid h-9 w-9 shrink-0 place-items-center rounded-xl bg-[#e8efe7] text-[#397462]">
+              <Upload size={17} />
+            </div>
+            <div>
+              <h2 className="text-[15px] font-bold text-[#344d4d]">
+                Upload Job Description
+              </h2>
+              <p className="mt-1 text-[11px] leading-5 text-[#84918b]">
+                Upload a text-based PDF, DOCX, or TXT document to prefill matching
+                fields. You can review and edit everything before creating the
+                position.
+              </p>
+            </div>
+          </div>
+          <label
+            htmlFor="job-description-document"
+            aria-disabled={isExtracting}
+            className={`flex min-h-14 cursor-pointer flex-wrap items-center gap-2 rounded-xl border border-dashed border-[#cbd6cb] bg-[#f6f7f1] px-4 py-3 text-[11px] font-semibold text-[#557068] hover:bg-[#eff3ec] ${
+              isExtracting ? 'cursor-wait opacity-70' : ''
+            }`}
+          >
+            {isExtracting ? (
+              <LoaderCircle size={16} className="animate-spin" aria-hidden="true" />
+            ) : (
+              <Upload size={15} aria-hidden="true" />
+            )}
+            {isExtracting ? 'Extracting document details…' : 'Choose a document'}
+            <input
+              id="job-description-document"
+              type="file"
+              accept=".pdf,.docx,.txt"
+              disabled={isExtracting}
+              className="sr-only"
+              onChange={(event) => {
+                void attachJobDescription(event.currentTarget.files?.[0]);
+                event.currentTarget.value = '';
+              }}
+            />
+            {values.jobDescriptionFileName && (
+              <span className="ml-auto inline-flex max-w-full items-center gap-1.5 truncate font-normal text-[#74827b]">
+                <FileText size={13} aria-hidden="true" />
+                {values.jobDescriptionFileName}
+              </span>
+            )}
+          </label>
+          {uploadError && (
+            <p role="alert" className="mt-2 text-[10px] text-[#a2493f]">
+              {uploadError}
+            </p>
+          )}
+          {extractionNotice && (
+            <p
+              role="status"
+              aria-live="polite"
+              className="mt-2 rounded-lg border border-[#dce5dc] bg-[#edf3ec] px-3 py-2 text-[10px] leading-4 text-[#42665a]"
+            >
+              {extractionNotice}
+            </p>
+          )}
+          {values.jobDescriptionFileName &&
+            values.jobDescriptionDocumentData && (
+              <a
+                href={values.jobDescriptionDocumentData}
+                download={values.jobDescriptionFileName}
+                className="mt-2 inline-flex items-center gap-1.5 text-[10px] font-semibold text-[#34715f] underline underline-offset-2"
+              >
+                <FileText size={13} aria-hidden="true" />
+                Download attached document
+              </a>
+            )}
+          <p className="mt-2 text-[10px] leading-4 text-[#8b958e]">
+            Files up to 1 MB. Scanned PDFs without selectable text are not
+            supported. Details not found in the document will be blank.
+          </p>
+        </section>
+
         <section className={sectionClass}>
           <div className="mb-5 flex items-start gap-3">
             <div className="grid h-9 w-9 shrink-0 place-items-center rounded-xl bg-[#e8efe7] text-[#397462]">
@@ -303,7 +537,7 @@ export function CreatePositionPage({
             </div>
 
             <fieldset>
-              <legend className={labelClass}>Type</legend>
+              <legend className={labelClass}>Position type</legend>
               <div className="grid gap-2 sm:grid-cols-2">
                 {(['New', 'Replacement'] as const).map((type) => (
                   <label
@@ -333,6 +567,46 @@ export function CreatePositionPage({
               </div>
             </fieldset>
 
+            <div>
+              <label className={labelClass} htmlFor="job-type">
+                Job type
+              </label>
+              <select
+                id="job-type"
+                value={values.jobType}
+                onChange={(event) =>
+                  updateJobType(
+                    event.target.value as PositionFormValues['jobType'],
+                  )
+                }
+                className={`${controlClass} appearance-none`}
+              >
+                <option value="">Select job type</option>
+                <option value="Full Time">Full Time</option>
+                <option value="Contract">Contract</option>
+              </select>
+              {values.jobType === 'Contract' && (
+                <div className="mt-2 flex flex-wrap items-center gap-2 text-[10px] text-[#71817a]">
+                  <span>
+                    Contract duration:{' '}
+                    {values.contractDurationMonths
+                      ? `${values.contractDurationMonths} months`
+                      : 'Choose a duration'}
+                  </span>
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setContractDurationError('');
+                      setContractDurationOpen(true);
+                    }}
+                    className="font-semibold text-[#34715f] underline underline-offset-2"
+                  >
+                    {values.contractDurationMonths ? 'Change' : 'Select'}
+                  </button>
+                </div>
+              )}
+            </div>
+
             <div className="grid gap-4 sm:grid-cols-2">
               <div>
                 <label className={labelClass} htmlFor="department">
@@ -346,6 +620,13 @@ export function CreatePositionPage({
                   }
                   className={`${controlClass} appearance-none`}
                 >
+                  <option value="">Select department</option>
+                  {values.department &&
+                    !departments.includes(values.department) && (
+                      <option value={values.department}>
+                        {values.department}
+                      </option>
+                    )}
                   {departments.map((department) => (
                     <option key={department} value={department}>
                       {department}
@@ -369,6 +650,7 @@ export function CreatePositionPage({
                   }
                   className={`${controlClass} appearance-none`}
                 >
+                  <option value="">Select priority</option>
                   {['Low', 'Medium', 'High', 'Urgent'].map((priority) => (
                     <option key={priority} value={priority}>
                       {priority}
@@ -394,6 +676,34 @@ export function CreatePositionPage({
                 className={controlClass}
               />
             </div>
+
+            <fieldset
+              disabled
+              className="rounded-xl border border-[#e8e7e0] bg-[#eeede7] p-3.5"
+            >
+              <legend className={`${labelClass} mb-0 px-1`}>Benefits</legend>
+              <p className="mb-3 text-[10px] leading-4 text-[#8b918b]">
+                Available benefits for this role. All are included and
+                read-only.
+              </p>
+              <div className="grid gap-2 sm:grid-cols-2">
+                {benefitOptions.map((benefit) => (
+                  <label
+                    key={benefit}
+                    className="flex min-h-10 cursor-not-allowed items-center gap-2.5 rounded-lg border border-[#e4e3dc] bg-[#f3f2ec] px-3 text-[11px] font-medium text-[#8b918b]"
+                  >
+                    <input
+                      type="checkbox"
+                      checked={values.benefits.includes(benefit)}
+                      readOnly
+                      className="h-4 w-4 accent-[#829187]"
+                      aria-label={benefit}
+                    />
+                    {benefit}
+                  </label>
+                ))}
+              </div>
+            </fieldset>
 
             <div>
               <label
@@ -539,36 +849,26 @@ export function CreatePositionPage({
             </div>
             <div>
               <h2 className="text-[15px] font-bold text-[#344d4d]">
-                Description
+                Job Description
               </h2>
               <p className="mt-1 text-[11px] text-[#84918b]">
-                Optional — break the role down into job, skill, and capability sections.
+                Add the role details candidates and reviewers should see.
               </p>
             </div>
           </div>
-          <div className="space-y-5">
-            {descriptionFields.map(({ key, label, helper, placeholder }) => (
-              <div key={key}>
-                <label className={labelClass} htmlFor={`description-${key}`}>
-                  {label}
-                  {!['job', 'skill', 'capability'].includes(key) && (
-                    <span className="font-normal text-[#89948d]"> (optional)</span>
-                  )}
-                </label>
-                <p className="mb-2 text-[10px] leading-4 text-[#84918b]">
-                  {helper}
-                </p>
-                <textarea
-                  id={`description-${key}`}
-                  value={values[key]}
-                  onChange={(event) => updateText(key, event.target.value)}
-                  rows={3}
-                  maxLength={4000}
-                  placeholder={placeholder}
-                  className={`${controlClass} resize-y leading-5`}
-                />
-              </div>
-            ))}
+          <div>
+            <label className={labelClass} htmlFor="description-job">
+              Job description
+            </label>
+            <textarea
+              id="description-job"
+              value={values.job}
+              onChange={(event) => updateText('job', event.target.value)}
+              rows={8}
+              maxLength={12000}
+              placeholder="Describe the role, responsibilities, and what success looks like..."
+              className={`${controlClass} resize-y leading-5`}
+            />
           </div>
         </section>
 
@@ -588,6 +888,144 @@ export function CreatePositionPage({
           </button>
         </div>
       </form>
+      {contractDurationOpen && values.jobType === 'Contract' && (
+        <div
+          className="fixed inset-0 z-50 grid place-items-center bg-[#1c302f]/45 p-4"
+          onMouseDown={(event) => {
+            if (event.target === event.currentTarget) {
+              setContractDurationOpen(false);
+            }
+          }}
+        >
+          <section
+            role="dialog"
+            aria-modal="true"
+            aria-labelledby="contract-duration-title"
+            className="w-full max-w-[620px] rounded-2xl border border-[#e4e2d9] bg-[#fcfbf7] p-5 shadow-[0_24px_80px_rgba(22,47,42,.24)] sm:p-7"
+          >
+            <div className="text-[9px] font-bold uppercase tracking-[.15em] text-[#829187]">
+              Job type · Contract
+            </div>
+            <h2
+              id="contract-duration-title"
+              className="serif mt-1 text-[23px] font-bold tracking-[-.04em] text-[#30484a]"
+            >
+              Select contract duration
+            </h2>
+            <p className="mt-1 text-[11px] leading-5 text-[#819089]">
+              Choose a preset or enter a custom number of months.
+            </p>
+            <div className="mt-5 flex flex-wrap gap-2">
+              {contractDurations.map((duration) => (
+                <button
+                  key={duration}
+                  type="button"
+                  aria-pressed={contractDurationChoice === duration}
+                  onClick={() => {
+                    setContractDurationChoice(duration);
+                    setValues((current) => ({
+                      ...current,
+                      contractDurationMonths: duration,
+                    }));
+                    setContractDurationError('');
+                  }}
+                  className={`rounded-full border px-4 py-2 text-[11px] font-semibold transition ${
+                    contractDurationChoice === duration
+                      ? 'border-[#203b56] bg-[#203b56] text-white'
+                      : 'border-[#dfe1d8] bg-white text-[#62716b] hover:bg-[#f0f3ed]'
+                  }`}
+                >
+                  {duration} months
+                </button>
+              ))}
+              <button
+                type="button"
+                aria-pressed={contractDurationChoice === 'other'}
+                onClick={() => {
+                  setContractDurationChoice('other');
+                  if (
+                    contractDurations.includes(
+                      values.contractDurationMonths as (typeof contractDurations)[number],
+                    )
+                  ) {
+                    setValues((current) => ({
+                      ...current,
+                      contractDurationMonths: '',
+                    }));
+                  }
+                  setContractDurationError('');
+                }}
+                className={`rounded-full border px-4 py-2 text-[11px] font-semibold transition ${
+                  contractDurationChoice === 'other'
+                    ? 'border-[#203b56] bg-[#203b56] text-white'
+                    : 'border-[#dfe1d8] bg-white text-[#62716b] hover:bg-[#f0f3ed]'
+                }`}
+              >
+                Other
+              </button>
+            </div>
+            {contractDurationChoice === 'other' && (
+              <div className="mt-5">
+                <label
+                  className={labelClass}
+                  htmlFor="custom-contract-duration"
+                >
+                  Custom duration in months
+                </label>
+                <input
+                  id="custom-contract-duration"
+                  type="number"
+                  min="1"
+                  step="1"
+                  inputMode="numeric"
+                  value={
+                    contractDurations.includes(
+                      values.contractDurationMonths as (typeof contractDurations)[number],
+                    )
+                      ? ''
+                      : values.contractDurationMonths
+                  }
+                  onChange={(event) => {
+                    updateText('contractDurationMonths', event.target.value);
+                    setContractDurationError('');
+                  }}
+                  placeholder="Enter a whole number of months"
+                  className={controlClass}
+                  aria-invalid={!!contractDurationError}
+                  aria-describedby={
+                    contractDurationError ? 'contract-duration-error' : undefined
+                  }
+                />
+              </div>
+            )}
+            {contractDurationError && (
+              <p
+                id="contract-duration-error"
+                role="alert"
+                className="mt-3 text-[10px] font-medium text-[#a2493f]"
+              >
+                {contractDurationError}
+              </p>
+            )}
+            <div className="mt-6 flex justify-end gap-2 border-t border-[#ece9df] pt-4">
+              <button
+                type="button"
+                onClick={() => setContractDurationOpen(false)}
+                className="rounded-xl px-4 py-2.5 text-[11px] font-semibold text-[#61766d] hover:bg-[#e9eee7]"
+              >
+                Cancel
+              </button>
+              <button
+                type="button"
+                onClick={applyContractDuration}
+                className="rounded-xl bg-[#3478dc] px-4 py-2.5 text-[11px] font-bold text-white hover:bg-[#2869c6]"
+              >
+                Apply duration
+              </button>
+            </div>
+          </section>
+        </div>
+      )}
     </div>
   );
 }

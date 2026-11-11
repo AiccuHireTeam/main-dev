@@ -8,6 +8,7 @@ import NotFound from "@/pages/not-found";
 import { Route, Switch, useLocation, useRoute, Router as WouterRouter } from "wouter";
 import { CandidateInterviewRoom } from "@/components/candidate-interview-room";
 import { CandidateApplicationChat } from "@/components/candidate-application-chat";
+import { AnalyticsChat } from "@/components/analytics-chat";
 import { applyOfferAction, canManagePosition, type OfferAction } from "@/lib/offer-workflow";
 import {
   getRoleLandingPath,
@@ -18,10 +19,10 @@ import {
   type WorkspaceRole,
 } from "@/lib/internal-access";
 import {
-  CreatePositionPage,
   createRequisitionId,
   type PositionFormValues,
 } from "@/components/create-position-form";
+import { CreatePositionFlow } from "@/components/create-position-flow";
 import {
   JobPortalPage,
   type HiringPosition,
@@ -31,6 +32,13 @@ import {
   RoleDetailsPage,
   type NewRoleApplicant,
 } from "@/components/role-details-page";
+import {
+  allStakeholdersSubmitted,
+  mergeRelevantStakeholderInputs,
+  type StakeholderInputResponse,
+  type StakeholderRequirementFields,
+  type StakeholderReviewDecision,
+} from "@/lib/stakeholder-approval";
 import {
   StakeholderFeedbackWorkspace,
   type StakeholderAnswerSet,
@@ -367,6 +375,25 @@ const genericStakeholderQuestions = [
   { id: "role-q2", prompt: "Which skills are most important for this position?" },
   { id: "role-q3", prompt: "What additional context should the hiring team consider?" },
 ];
+const sampleApprovalPositionId = "AH-2530";
+const sampleApprovalJobId = `stakeholder-${sampleApprovalPositionId}`;
+const sampleApprovalAnswers: Record<string, string> = {
+  [`${sampleApprovalPositionId}-role-q1`]:
+    "Success means improving task completion and accessibility in the first two quarters.",
+  [`${sampleApprovalPositionId}-role-q2`]:
+    "Close partnership with Product and Engineering is essential, especially during discovery and implementation.",
+  [`${sampleApprovalPositionId}-role-q3`]:
+    "Plan for design-system alignment early so new patterns stay consistent as the product grows.",
+};
+function questionsForPosition(position: HiringPosition) {
+  return (
+    stakeholderQuestionBank[position.requisitionId] ??
+    genericStakeholderQuestions
+  ).map((question) => ({
+    ...question,
+    id: `${position.id}-${question.id}`,
+  }));
+}
 const people = [
   {
     initials: "PN",
@@ -633,7 +660,7 @@ const demoHiringPositions: HiringPosition[] = [
     priority: "Medium",
     salaryGrade: "L6",
     location: "Remote · US",
-    stakeholders: [],
+    stakeholders: ["alex.morgan@demo.talent"],
     jobPostingDeadline: "",
     recruitmentDeadline: "",
     job: "Guide a product design team delivering accessible, research-led experiences.",
@@ -644,6 +671,34 @@ const demoHiringPositions: HiringPosition[] = [
     otherDetails: "",
     status: "Draft",
     createdAt: "2026-09-02",
+    applicantCount: 0,
+    ownerEmail: "hiring.manager@demo.talent",
+    applicants: [],
+  },
+  {
+    id: "AH-2530",
+    requisitionId: "REQ-2026-4TZ93M7Q",
+    position: "Staff Product Designer",
+    hiringManager: "Priya Nair",
+    positionType: "New",
+    jobType: "Full Time",
+    department: "Design",
+    priority: "High",
+    salaryGrade: "L6",
+    salaryRange: "$165,000–$195,000",
+    location: "New York, NY · Hybrid",
+    stakeholders: ["alex.morgan@demo.talent"],
+    jobPostingDeadline: "2026-11-20",
+    recruitmentDeadline: "2026-12-20",
+    job: "Lead design for core product workflows, from discovery through launch. Partner with product and engineering to make complex tasks clear and accessible.",
+    skill: "Product design, prototyping, accessibility, and design systems.",
+    capability: "Use research and cross-functional collaboration to deliver measurable improvements.",
+    personality: "",
+    additionalRole: "",
+    verticalGrowth: "",
+    otherDetails: "",
+    status: "Ready for approval",
+    createdAt: "2026-11-10",
     applicantCount: 0,
     ownerEmail: "hiring.manager@demo.talent",
     applicants: [],
@@ -979,27 +1034,82 @@ function loadStakeholderFeedback(email: string): StakeholderFeedbackState {
     submittedJobIds: [],
   };
   if (!email) return emptyState;
+  const normalizedEmail = email.toLowerCase();
+  const isSampleStakeholder = normalizedEmail === stakeholderDemo;
+  const sampleAnswers: StakeholderFeedbackState["answers"] = isSampleStakeholder
+    ? { [sampleApprovalJobId]: sampleApprovalAnswers }
+    : {};
+  const sampleSubmittedJobIds = isSampleStakeholder
+    ? [sampleApprovalJobId]
+    : [];
   try {
     const saved = localStorage.getItem(
-      `aiccuhire-stakeholder-feedback:${email.toLowerCase()}`,
+      `aiccuhire-stakeholder-feedback:${normalizedEmail}`,
     );
-    if (!saved) return emptyState;
+    if (!saved) {
+      return {
+        answers: sampleAnswers,
+        submittedJobIds: sampleSubmittedJobIds,
+      };
+    }
     const parsed = JSON.parse(saved) as Partial<StakeholderFeedbackState>;
+    const savedAnswers =
+      parsed.answers && typeof parsed.answers === "object"
+        ? parsed.answers
+        : {};
     return {
-      answers:
-        parsed.answers && typeof parsed.answers === "object"
-          ? parsed.answers
-          : {},
-      submittedJobIds: Array.isArray(parsed.submittedJobIds)
-        ? parsed.submittedJobIds.filter(
-            (jobId): jobId is string => typeof jobId === "string",
-          )
-        : [],
+      answers: {
+        ...sampleAnswers,
+        ...savedAnswers,
+        ...(isSampleStakeholder
+          ? {
+              [sampleApprovalJobId]: {
+                ...sampleApprovalAnswers,
+                ...(savedAnswers[sampleApprovalJobId] ?? {}),
+              },
+            }
+          : {}),
+      },
+      submittedJobIds: [
+        ...new Set([
+          ...sampleSubmittedJobIds,
+          ...(Array.isArray(parsed.submittedJobIds)
+            ? parsed.submittedJobIds.filter(
+                (jobId): jobId is string => typeof jobId === "string",
+              )
+            : []),
+        ]),
+      ],
     };
   } catch (error) {
     console.error("Unable to load saved stakeholder feedback.", error);
     return emptyState;
   }
+}
+
+function getPositionStakeholderResponses(
+  position: HiringPosition,
+): StakeholderInputResponse[] {
+  const stakeholderJobId = `stakeholder-${position.id}`;
+  const questions = questionsForPosition(position);
+
+  return position.stakeholders.flatMap((email) => {
+    const feedback = loadStakeholderFeedback(email);
+    if (!feedback.submittedJobIds.includes(stakeholderJobId)) return [];
+    const answers = feedback.answers[stakeholderJobId] ?? {};
+    return questions.flatMap((question) => {
+      const answer = answers[question.id]?.trim();
+      if (!answer) return [];
+      const key = `${email.toLowerCase()}|${question.id}`;
+      return [{
+        key,
+        stakeholderEmail: email,
+        question: question.prompt,
+        answer,
+        decision: position.stakeholderReview?.[key],
+      }];
+    });
+  });
 }
 
 function App() {
@@ -1127,13 +1237,7 @@ function App() {
         position.verticalGrowth,
         position.otherDetails,
       ].filter((requirement) => requirement.trim().length > 0),
-      questions: (
-        stakeholderQuestionBank[position.requisitionId] ??
-        genericStakeholderQuestions
-      ).map((question) => ({
-        ...question,
-        id: `${position.id}-${question.id}`,
-      })),
+      questions: questionsForPosition(position),
     }));
 
   const isInternal = (value: Role | null) => hasDashboardAccess(value);
@@ -1163,19 +1267,166 @@ function App() {
   };
   const saveStakeholderFeedback = (next: StakeholderFeedbackState) => {
     setStakeholderFeedback(next);
-    if (!session?.email) return;
+    if (!session?.email) return false;
     try {
       localStorage.setItem(
         `aiccuhire-stakeholder-feedback:${session.email.toLowerCase()}`,
         JSON.stringify(next),
       );
       setStakeholderSaveError("");
+      return true;
     } catch (error) {
       console.error("Unable to save stakeholder feedback in this browser.", error);
       setStakeholderSaveError(
         "Your answers remain available in this session, but could not be saved in this browser.",
       );
+      return false;
     }
+  };
+  const submitStakeholderInput = (
+    stakeholderJobId: string,
+    answers: Record<string, string>,
+  ) => {
+    const nextFeedback: StakeholderFeedbackState = {
+      answers: {
+        ...stakeholderFeedback.answers,
+        [stakeholderJobId]: answers,
+      },
+      submittedJobIds: stakeholderFeedback.submittedJobIds.includes(
+        stakeholderJobId,
+      )
+        ? stakeholderFeedback.submittedJobIds
+        : [...stakeholderFeedback.submittedJobIds, stakeholderJobId],
+    };
+    if (!saveStakeholderFeedback(nextFeedback)) return;
+
+    const positionId = stakeholderJobId.replace(/^stakeholder-/, "");
+    const target = positions.find((position) => position.id === positionId);
+    if (!target || target.status !== "Draft" || target.stakeholders.length === 0) {
+      return;
+    }
+    const submittedByEmail = Object.fromEntries(
+      target.stakeholders.map((email) => [
+        email.toLowerCase(),
+        email.toLowerCase() === session?.email.toLowerCase()
+          ? nextFeedback.submittedJobIds.includes(stakeholderJobId)
+          : loadStakeholderFeedback(email).submittedJobIds.includes(
+              stakeholderJobId,
+            ),
+      ]),
+    );
+    if (!allStakeholdersSubmitted(target.stakeholders, submittedByEmail)) return;
+    persistHiringPositions(
+      positions.map((position) =>
+        position.id === target.id
+          ? { ...position, status: "Ready for approval" as const }
+          : position,
+      ),
+    );
+  };
+  const reviewStakeholderResponse = (
+    positionId: string,
+    responseKey: string,
+    decision: StakeholderReviewDecision,
+  ) => {
+    const target = positions.find((position) => position.id === positionId);
+    if (
+      !target ||
+      target.status !== "Ready for approval" ||
+      !canManagePosition(session?.role, session?.email, target)
+    ) return;
+
+    const responses = getPositionStakeholderResponses(target);
+    const stakeholderReview = {
+      ...target.stakeholderReview,
+      [responseKey]: decision,
+    };
+    const reviewedResponses = responses.map((response) => ({
+      ...response,
+      decision: stakeholderReview[response.key],
+    }));
+    const stakeholderBaseRequirements: StakeholderRequirementFields =
+      target.stakeholderBaseRequirements ?? {
+        job: target.stakeholderBaseJob ?? target.job,
+        skill: target.skill,
+        capability: target.capability,
+        personality: target.personality ?? "",
+        additionalRole: target.additionalRole,
+        verticalGrowth: target.verticalGrowth,
+        otherDetails: target.otherDetails,
+      };
+    const mergedRequirements = mergeRelevantStakeholderInputs(
+      stakeholderBaseRequirements,
+      reviewedResponses,
+    );
+    const updatedPosition: HiringPosition = {
+      ...target,
+      stakeholderBaseJob: stakeholderBaseRequirements.job,
+      stakeholderBaseRequirements,
+      stakeholderReview,
+      ...mergedRequirements,
+    };
+    persistHiringPositions(
+      positions.map((position) =>
+        position.id === positionId ? updatedPosition : position,
+      ),
+    );
+  };
+  const approveJobPosting = (positionId: string) => {
+    const target = positions.find((position) => position.id === positionId);
+    if (
+      !target ||
+      target.status !== "Ready for approval" ||
+      !canManagePosition(session?.role, session?.email, target)
+    ) return;
+
+    const responses = getPositionStakeholderResponses(target);
+    const allInputsSubmitted = target.stakeholders.every((email) =>
+      loadStakeholderFeedback(email).submittedJobIds.includes(
+        `stakeholder-${target.id}`,
+      ),
+    );
+    if (
+      !allInputsSubmitted ||
+      responses.length === 0 ||
+      responses.some((response) => !target.stakeholderReview?.[response.key])
+    ) {
+      setPositionSaveError(
+        "Review each stakeholder response before approving this job posting.",
+      );
+      return;
+    }
+
+    const stakeholderBaseRequirements: StakeholderRequirementFields =
+      target.stakeholderBaseRequirements ?? {
+        job: target.stakeholderBaseJob ?? target.job,
+        skill: target.skill,
+        capability: target.capability,
+        personality: target.personality ?? "",
+        additionalRole: target.additionalRole,
+        verticalGrowth: target.verticalGrowth,
+        otherDetails: target.otherDetails,
+      };
+    const reviewedResponses = responses.map((response) => ({
+      ...response,
+      decision: target.stakeholderReview?.[response.key],
+    }));
+    const mergedRequirements = mergeRelevantStakeholderInputs(
+      stakeholderBaseRequirements,
+      reviewedResponses,
+    );
+    const approvedPosition: HiringPosition = {
+      ...target,
+      stakeholderBaseJob: stakeholderBaseRequirements.job,
+      stakeholderBaseRequirements,
+      ...mergedRequirements,
+      status: "Open",
+    };
+    persistHiringPositions(
+      positions.map((position) =>
+        position.id === positionId ? approvedPosition : position,
+      ),
+    );
   };
   const addAdminUser = (user: NewAdminUser): string | undefined => {
     if (!session || !hasAdminAccess(session.role)) {
@@ -1471,16 +1722,23 @@ function App() {
       position: source.position,
       hiringManager: source.hiringManager,
       positionType: source.positionType,
+      jobType: source.jobType ?? "Full Time",
+      contractDurationMonths: source.contractDurationMonths ?? "",
+      benefits: [...(source.benefits ?? [])],
       department: source.department,
       priority: source.priority,
       salaryGrade: source.salaryGrade,
+      salaryRange: source.salaryRange ?? "",
       location: source.location,
       stakeholders: [...source.stakeholders],
       jobPostingDeadline: source.jobPostingDeadline,
       recruitmentDeadline: source.recruitmentDeadline,
       job: source.job,
+      jobDescriptionFileName: source.jobDescriptionFileName ?? "",
+      jobDescriptionDocumentData: source.jobDescriptionDocumentData ?? "",
       skill: source.skill,
       capability: source.capability,
+      personality: source.personality ?? "",
       additionalRole: source.additionalRole,
       verticalGrowth: source.verticalGrowth,
       otherDetails: source.otherDetails,
@@ -1495,6 +1753,10 @@ function App() {
     const nextPosition: HiringPosition = {
       id: `AH-${Date.now()}`,
       ...values,
+      positionType:
+        values.positionType === "Replacement" ? "Replacement" : "New",
+      salaryRange: values.salaryRange.trim(),
+      personality: values.personality.trim(),
       status: "Draft",
       createdAt: new Date().toISOString().slice(0, 10),
       applicantCount: 0,
@@ -2621,6 +2883,7 @@ function App() {
                 ),
             }),
           )}
+          stakeholderResponses={getPositionStakeholderResponses(selectedPosition)}
           saveError={positionSaveError}
           hasResumeFile={(applicantId) =>
             Boolean(candidateResumeFiles[applicantId])
@@ -2654,6 +2917,14 @@ function App() {
             updateOffer(selectedPosition.id, { type: "complete", applicantId })
           }
           onCloseJob={() => updateOffer(selectedPosition.id, { type: "close" })}
+          onReviewStakeholderResponse={(responseKey, decision) =>
+            reviewStakeholderResponse(
+              selectedPosition.id,
+              responseKey,
+              decision,
+            )
+          }
+          onApproveJobPosting={() => approveJobPosting(selectedPosition.id)}
           onToggleOfferCandidate={(applicantId, selected) =>
             toggleOfferCandidate(
               selectedPosition.id,
@@ -2716,7 +2987,7 @@ function App() {
     return AppShell({
       active: "job-portal",
       children: (
-        <CreatePositionPage
+        <CreatePositionFlow
           initialValues={positionForm}
           isDuplicate={isPositionDuplicate}
           onCancel={cancelPositionForm}
@@ -2961,17 +3232,7 @@ function App() {
               setStakeholderWorkflow(null);
             }}
             onSubmit={(answers) => {
-              saveStakeholderFeedback({
-                answers: {
-                  ...stakeholderFeedback.answers,
-                  [selectedJob.id]: answers,
-                },
-                submittedJobIds: stakeholderFeedback.submittedJobIds.includes(
-                  selectedJob.id,
-                )
-                  ? stakeholderFeedback.submittedJobIds
-                  : [...stakeholderFeedback.submittedJobIds, selectedJob.id],
-              });
+              submitStakeholderInput(selectedJob.id, answers);
               setStakeholderWorkflow(null);
             }}
           />
@@ -3138,6 +3399,14 @@ function App() {
       { month: "Jul 2025", opened: 11, filled: 5, applied: 278, hired: 5 },
       { month: "Aug 2025", opened: 4, filled: 0, applied: 47, hired: 0 },
     ];
+    const reportSummary = {
+      totalOpenPositions: 7,
+      positionsFilled: 5,
+      averageDaysToHire: 32,
+      offerAcceptanceRate: 67,
+      offersExtended: 3,
+      averageAiMatchScore: 82,
+    };
     const isAdmin = hasAdminAccess(session.role);
     const canManageJobs = hasHiringManagerAccess(session.role);
     const chartX = (index: number) => 64 + index * 86;
@@ -3156,9 +3425,7 @@ function App() {
               <div className="mb-2 text-[10px] font-bold uppercase tracking-[.16em] text-[#68857a]">
                 AiccuHire · Internal workspace
               </div>
-              <h1 className="serif text-[clamp(28px,4vw,38px)] font-bold tracking-[-.05em] text-[#2d4446]">
-                Reports &amp; Analytics
-              </h1>
+              <h1 className="serif text-[clamp(28px,4vw,38px)] font-bold tracking-[-.05em] text-[#2d4446]">Summary</h1>
               <p className="mt-1 text-[12px] text-[#75827e]">
                 Comprehensive insights into your hiring pipeline and operations.
               </p>
@@ -3184,24 +3451,6 @@ function App() {
               </button>
             </div>
           </header>
-          <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-4">
-            {[
-              { label: "Total Open Positions", value: "7", note: "5 positions filled", icon: BriefcaseBusiness },
-              { label: "Avg Days to Hire", value: "32", note: "Across all departments", icon: Clock3 },
-              { label: "Offer Acceptance", value: "67%", note: "3 offers extended", icon: CheckCircle2 },
-              { label: "Avg AI Match Score", value: "82", note: "Active candidates", icon: Sparkles },
-            ].map((metric) => (
-              <section key={metric.label} className="rounded-2xl border border-[#e4e2d9] bg-[#fcfbf7] p-4 shadow-[0_8px_22px_rgba(31,59,54,.04)]">
-                <div className="flex items-center justify-between text-[10px] font-semibold text-[#76847d]">
-                  {metric.label}
-                  <metric.icon size={15} className="text-[#688b79]" />
-                </div>
-                <div className="serif mt-3 text-[29px] font-bold text-[#2d4446]">{metric.value}</div>
-                <div className="mt-1 text-[9px] text-[#89958e]">{metric.note}</div>
-              </section>
-            ))}
-          </div>
-
           <section className="overflow-hidden rounded-2xl border border-[#e4e2d9] bg-[#fcfbf7] shadow-[0_8px_22px_rgba(31,59,54,.04)]">
             <div className="border-b border-[#e8e5dd] px-5 py-4">
               <div className="flex items-center gap-2 text-[12px] font-bold text-[#344d4d]">
@@ -3292,6 +3541,26 @@ function App() {
               </div>
             </div>
           </section>
+          <div className="grid items-start gap-4 lg:grid-cols-[minmax(0,1fr)_minmax(300px,420px)]">
+            <div className="grid grid-cols-2 gap-3">
+              {[
+                { label: "Total Open Positions", value: String(reportSummary.totalOpenPositions), note: `${reportSummary.positionsFilled} positions filled`, icon: BriefcaseBusiness },
+                { label: "Avg Days to Hire", value: String(reportSummary.averageDaysToHire), note: "Across all departments", icon: Clock3 },
+                { label: "Offer Acceptance", value: `${reportSummary.offerAcceptanceRate}%`, note: `${reportSummary.offersExtended} offers extended`, icon: CheckCircle2 },
+                { label: "Avg AI Match Score", value: String(reportSummary.averageAiMatchScore), note: "Active candidates", icon: Sparkles },
+              ].map((metric) => (
+                <section key={metric.label} className="rounded-2xl border border-[#e4e2d9] bg-[#fcfbf7] p-3.5 shadow-[0_8px_22px_rgba(31,59,54,.04)] sm:p-4">
+                  <div className="flex items-center justify-between gap-2 text-[10px] font-semibold text-[#76847d]">
+                    {metric.label}
+                    <metric.icon size={15} className="shrink-0 text-[#688b79]" />
+                  </div>
+                  <div className="serif mt-2 text-[25px] font-bold text-[#2d4446]">{metric.value}</div>
+                  <div className="mt-1 text-[9px] text-[#89958e]">{metric.note}</div>
+                </section>
+              ))}
+            </div>
+            <AnalyticsChat report={reportSummary} activity={activity} />
+          </div>
         </div>
       ),
     });

@@ -19,6 +19,10 @@ import { useForm } from "react-hook-form";
 import { Form } from "@/components/ui/form";
 import type { HiringPosition, RoleApplicant } from "@/components/job-portal-pages";
 import { offerSelectionError } from "@/lib/offer-workflow";
+import type {
+  StakeholderInputResponse,
+  StakeholderReviewDecision,
+} from "@/lib/stakeholder-approval";
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle, AlertDialogTrigger } from "@/components/ui/alert-dialog";
 
 export type NewRoleApplicant = {
@@ -42,6 +46,7 @@ type StakeholderInputStatus = {
 type RoleDetailsPageProps = {
   position: HiringPosition;
   stakeholderInputStatuses: StakeholderInputStatus[];
+  stakeholderResponses: StakeholderInputResponse[];
   saveError?: string;
   hasResumeFile(applicantId: string): boolean;
   onBack(): void;
@@ -56,6 +61,11 @@ type RoleDetailsPageProps = {
   onScheduleFinalInterview(): void;
   onCompleteFinalInterview(applicantId: string): void;
   onCloseJob(): void;
+  onReviewStakeholderResponse(
+    responseKey: string,
+    decision: StakeholderReviewDecision,
+  ): void;
+  onApproveJobPosting(): void;
   onToggleOfferCandidate(applicantId: string, selected: boolean): void;
   onRankOfferCandidate(applicantId: string, rank: 1 | 2 | 3): void;
   onProcessOffer(): void;
@@ -94,6 +104,7 @@ function DetailItem({ label, value }: { label: string; value: string }) {
 export function RoleDetailsPage({
   position,
   stakeholderInputStatuses,
+  stakeholderResponses,
   saveError,
   hasResumeFile,
   onBack,
@@ -108,6 +119,8 @@ export function RoleDetailsPage({
   onScheduleFinalInterview,
   onCompleteFinalInterview,
   onCloseJob,
+  onReviewStakeholderResponse,
+  onApproveJobPosting,
   onToggleOfferCandidate,
   onRankOfferCandidate,
   onProcessOffer,
@@ -189,12 +202,17 @@ export function RoleDetailsPage({
             badge: "border-[#e6d4ce] bg-[#fbf3f0] text-[#985548]",
             dot: "bg-[#b36b5f]",
           }
-        : position.status === "Draft"
+       : position.status === "Draft"
           ? {
               badge: "border-[#e6dbc7] bg-[#f8f1e6] text-[#936b36]",
               dot: "bg-[#c38b45]",
             }
-          : position.status === "Ready for Final Interview" ||
+           : position.status === "Ready for approval"
+             ? {
+                 badge: "border-[#d8dfef] bg-[#edf1fa] text-[#4e638d]",
+                 dot: "bg-[#677cab]",
+               }
+           : position.status === "Ready for Final Interview" ||
                 position.status === "Final Interview scheduled" ||
                 position.status === "Final interviews completed"
             ? {
@@ -375,9 +393,24 @@ export function RoleDetailsPage({
           <DetailItem label="Hiring manager" value={position.hiringManager} />
           <DetailItem label="Department" value={position.department} />
           <DetailItem label="Location" value={position.location} />
+          <DetailItem label="Job type" value={position.jobType ?? ""} />
+          {position.jobType === "Contract" && (
+            <DetailItem
+              label="Contract duration"
+              value={
+                position.contractDurationMonths
+                  ? `${position.contractDurationMonths} months`
+                  : ""
+              }
+            />
+          )}
           <DetailItem label="Role type" value={position.positionType} />
           <DetailItem label="Priority" value={position.priority} />
           <DetailItem label="Salary grade" value={position.salaryGrade} />
+          <DetailItem
+            label="Benefits"
+            value={(position.benefits ?? []).join(", ")}
+          />
           <DetailItem label="Created" value={formatDate(position.createdAt)} />
           <DetailItem
             label="Job posting deadline"
@@ -453,6 +486,151 @@ export function RoleDetailsPage({
           </section>
         )}
 
+        {position.status === "Ready for approval" && (
+          <section
+            aria-labelledby="stakeholder-approval-heading"
+            data-testid="section-stakeholder-approval"
+            className="mt-5 rounded-xl border border-[#d8dfef] bg-[#f7f8fc] p-4 sm:p-5"
+          >
+            <div className="mb-4">
+              <h3
+                id="stakeholder-approval-heading"
+                className="text-[13px] font-bold text-[#344d4d]"
+              >
+                Stakeholder input review
+              </h3>
+              <p className="mt-1 text-[11px] leading-5 text-[#74817b]">
+                Review each response as relevant or not relevant. Relevant
+                feedback is incorporated into the matching job, skills,
+                capability, personality, or context requirement without
+                stakeholder attribution.
+              </p>
+            </div>
+            {stakeholderResponses.length === 0 ? (
+              <p
+                className="rounded-lg bg-white px-3 py-4 text-[11px] text-[#75837b]"
+                data-testid="empty-stakeholder-responses"
+              >
+                No submitted stakeholder responses are available to review.
+              </p>
+            ) : (
+              <div className="max-h-[560px] space-y-3 overflow-y-auto pr-1">
+                {stakeholderResponses.map((response, index) => (
+                  <article
+                    key={response.key}
+                    data-testid={`stakeholder-response-${index + 1}`}
+                    className="rounded-xl border border-[#e4e2d9] bg-white p-4"
+                  >
+                    <div className="flex flex-wrap items-start justify-between gap-2">
+                      <div>
+                        <p className="text-[9px] font-bold uppercase tracking-[.1em] text-[#829087]">
+                          Stakeholder · {response.stakeholderEmail}
+                        </p>
+                        <h4 className="mt-2 text-[11px] font-bold leading-5 text-[#445b53]">
+                          {response.question}
+                        </h4>
+                        <p className="mt-2 whitespace-pre-wrap text-[11px] leading-5 text-[#60736c]">
+                          {response.answer}
+                        </p>
+                      </div>
+                      <span
+                        className={`rounded-full px-2.5 py-1 text-[9px] font-bold ${
+                          response.decision === "relevant"
+                            ? "bg-[#e8f1e9] text-[#34715f]"
+                            : response.decision === "not-relevant"
+                              ? "bg-[#f2efea] text-[#776e60]"
+                              : "bg-[#f5eee2] text-[#936b36]"
+                        }`}
+                      >
+                        {response.decision === "relevant"
+                          ? "Relevant"
+                          : response.decision === "not-relevant"
+                            ? "Not relevant"
+                            : "Needs review"}
+                      </span>
+                    </div>
+                    <div className="mt-3 flex flex-wrap gap-2 border-t border-[#eeece4] pt-3">
+                      <button
+                        type="button"
+                        aria-pressed={response.decision === "relevant"}
+                        onClick={() =>
+                          onReviewStakeholderResponse(response.key, "relevant")
+                        }
+                        data-testid={`button-response-relevant-${index + 1}`}
+                        className={`min-h-9 rounded-lg border px-3 py-2 text-[10px] font-bold ${
+                          response.decision === "relevant"
+                            ? "border-[#83a993] bg-[#e8f1e9] text-[#34715f]"
+                            : "border-[#dfe4da] bg-[#faf9f3] text-[#526a60] hover:bg-[#f1f4ed]"
+                        }`}
+                      >
+                        Relevant
+                      </button>
+                      <button
+                        type="button"
+                        aria-pressed={response.decision === "not-relevant"}
+                        onClick={() =>
+                          onReviewStakeholderResponse(response.key, "not-relevant")
+                        }
+                        data-testid={`button-response-not-relevant-${index + 1}`}
+                        className={`min-h-9 rounded-lg border px-3 py-2 text-[10px] font-bold ${
+                          response.decision === "not-relevant"
+                            ? "border-[#d2c7b7] bg-[#f2efea] text-[#776e60]"
+                            : "border-[#dfe4da] bg-[#faf9f3] text-[#526a60] hover:bg-[#f1f4ed]"
+                        }`}
+                      >
+                        Not relevant
+                      </button>
+                    </div>
+                  </article>
+                ))}
+              </div>
+            )}
+            <div className="mt-5 flex flex-col gap-3 border-t border-[#e3e5ec] pt-4 sm:flex-row sm:items-center sm:justify-between">
+              <p className="text-[10px] leading-4 text-[#74817b]">
+                {stakeholderResponses.length > 0 &&
+                stakeholderResponses.every((response) => response.decision)
+                  ? "All stakeholder responses have been reviewed."
+                  : "Choose Relevant or Not relevant for every response before approval."}
+              </p>
+              <AlertDialog>
+                <AlertDialogTrigger asChild>
+                  <button
+                    type="button"
+                    disabled={
+                      stakeholderResponses.length === 0 ||
+                      stakeholderResponses.some((response) => !response.decision)
+                    }
+                    data-testid="button-approve-job-posting"
+                    className="inline-flex min-h-10 items-center justify-center gap-2 rounded-xl bg-[#205e53] px-4 py-2.5 text-[11px] font-bold text-white hover:bg-[#184d44] disabled:cursor-not-allowed disabled:opacity-45"
+                  >
+                    <Check size={14} aria-hidden="true" />
+                    Approve Job Posting
+                  </button>
+                </AlertDialogTrigger>
+                <AlertDialogContent>
+                  <AlertDialogHeader>
+                    <AlertDialogTitle>Approve this job posting?</AlertDialogTitle>
+                    <AlertDialogDescription>
+                      The position will move to Open and become available in the
+                      hiring pipeline. Only responses marked Relevant will be
+                      included in the job requirement, without stakeholder names.
+                    </AlertDialogDescription>
+                  </AlertDialogHeader>
+                  <AlertDialogFooter>
+                    <AlertDialogCancel>Cancel</AlertDialogCancel>
+                    <AlertDialogAction
+                      onClick={onApproveJobPosting}
+                      data-testid="button-confirm-approve-job-posting"
+                    >
+                      Approve and open
+                    </AlertDialogAction>
+                  </AlertDialogFooter>
+                </AlertDialogContent>
+              </AlertDialog>
+            </div>
+          </section>
+        )}
+
         <div className="mt-5 grid gap-4 md:grid-cols-2">
           {[
             ["Job", position.job],
@@ -473,6 +651,17 @@ export function RoleDetailsPage({
               </article>
             ))}
         </div>
+        {position.jobDescriptionFileName &&
+          position.jobDescriptionDocumentData && (
+            <a
+              href={position.jobDescriptionDocumentData}
+              download={position.jobDescriptionFileName}
+              className="mt-4 inline-flex items-center gap-2 rounded-xl border border-[#dfe4da] bg-[#f5f6f0] px-3.5 py-2.5 text-[11px] font-semibold text-[#42665a] hover:bg-[#edf2e9]"
+            >
+              <FileText size={14} aria-hidden="true" />
+              Download {position.jobDescriptionFileName}
+            </a>
+          )}
       </section>
 
       {isFinalInterviewScheduled && (

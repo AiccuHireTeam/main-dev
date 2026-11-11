@@ -68,21 +68,39 @@ export type HiringPosition = {
   position: string;
   hiringManager: string;
   positionType: 'New' | 'Replacement';
+  jobType?: 'Full Time' | 'Contract' | '';
+  contractDurationMonths?: string;
+  benefits?: string[];
   department: string;
   priority: string;
   salaryGrade: string;
+  salaryRange?: string;
   location: string;
   stakeholders: string[];
   jobPostingDeadline: string;
   recruitmentDeadline: string;
   job: string;
+  jobDescriptionFileName?: string;
+  jobDescriptionDocumentData?: string;
   skill: string;
   capability: string;
+  personality?: string;
   additionalRole: string;
   verticalGrowth: string;
   otherDetails: string;
-  status: 'Open' | 'Ready for Interview' | 'Ready for Final Interview' | 'Final Interview scheduled' | 'Final interviews completed' | 'Process Offer' | 'Closed' | 'Draft' | 'On Hold' | 'Removed';
-  statusBeforeHold?: 'Open' | 'Ready for Interview' | 'Ready for Final Interview' | 'Final Interview scheduled' | 'Final interviews completed' | 'Process Offer' | 'Closed' | 'Draft';
+  status: 'Open' | 'Ready for approval' | 'Ready for Interview' | 'Ready for Final Interview' | 'Final Interview scheduled' | 'Final interviews completed' | 'Process Offer' | 'Closed' | 'Draft' | 'On Hold' | 'Removed';
+  statusBeforeHold?: 'Open' | 'Ready for approval' | 'Ready for Interview' | 'Ready for Final Interview' | 'Final Interview scheduled' | 'Final interviews completed' | 'Process Offer' | 'Closed' | 'Draft';
+  stakeholderReview?: Record<string, 'relevant' | 'not-relevant'>;
+  stakeholderBaseJob?: string;
+  stakeholderBaseRequirements?: {
+    job: string;
+    skill: string;
+    capability: string;
+    personality: string;
+    additionalRole: string;
+    verticalGrowth: string;
+    otherDetails: string;
+  };
   createdAt: string;
   applicantCount: number;
   ownerEmail: string;
@@ -142,6 +160,7 @@ function formatDate(value: string) {
 function StatusBadge({ status }: { status: HiringPosition['status'] }) {
   const styles = {
     Open: 'bg-[#e8f1e9] text-[#34715f]',
+    'Ready for approval': 'bg-[#e9e9f4] text-[#62558b]',
     'Ready for Interview': 'bg-[#e8efe9] text-[#2f6b5a]',
     'Ready for Final Interview': 'bg-[#e7edf7] text-[#455f8a]',
     'Final Interview scheduled': 'bg-[#e9e9f4] text-[#62558b]',
@@ -152,7 +171,7 @@ function StatusBadge({ status }: { status: HiringPosition['status'] }) {
     'On Hold': 'bg-[#f4eadb] text-[#986f3c]',
     Removed: 'bg-[#f5e9e5] text-[#9a5548]',
   };
-  return <span className={`inline-flex items-center gap-1.5 rounded-full px-2.5 py-1 text-[10px] font-bold ${styles[status]}`}><span className={`h-1.5 w-1.5 rounded-full ${status === 'Open' || status === 'Ready for Interview' || status === 'Process Offer' || status === 'Closed' ? 'bg-[#4d8a70]' : status === 'Ready for Final Interview' || status === 'Final Interview scheduled' || status === 'Final interviews completed' ? 'bg-[#677cab]' : status === 'Draft' ? 'bg-[#c38b45]' : status === 'On Hold' ? 'bg-[#c38b45]' : status === 'Removed' ? 'bg-[#b36b5f]' : 'bg-[#89948d]'}`} />{status}</span>;
+  return <span className={`inline-flex items-center gap-1.5 rounded-full px-2.5 py-1 text-[10px] font-bold ${styles[status]}`}><span className={`h-1.5 w-1.5 rounded-full ${status === 'Open' || status === 'Ready for Interview' || status === 'Process Offer' || status === 'Closed' ? 'bg-[#4d8a70]' : status === 'Ready for approval' || status === 'Ready for Final Interview' || status === 'Final Interview scheduled' || status === 'Final interviews completed' ? 'bg-[#677cab]' : status === 'Draft' ? 'bg-[#c38b45]' : status === 'On Hold' ? 'bg-[#c38b45]' : status === 'Removed' ? 'bg-[#b36b5f]' : 'bg-[#89948d]'}`} />{status}</span>;
 }
 
 export function JobPortalPage({ positions, onCreate, onDuplicate, onOpenPosition, onBackToDashboard }: JobPortalPageProps) {
@@ -271,6 +290,7 @@ export function JobPortalPage({ positions, onCreate, onDuplicate, onOpenPosition
               >
                 <option value="All">All statuses</option>
                 <option value="Draft">Draft</option>
+                <option value="Ready for approval">Ready for approval</option>
                 <option value="Open">Open</option>
                 <option value="Ready for Interview">Ready for Interview</option>
                 <option value="Ready for Final Interview">Ready for Final Interview</option>
