@@ -1,0 +1,604 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "title": "Recruitment Repositories",
+  "type": "object",
+  "additionalProperties": false,
+  "properties": {
+    "Admin_repository": {
+      "type": "object",
+      "x-primary-key": "Tenant_id",
+      "required": [
+        "Tenant_id"
+      ],
+      "additionalProperties": false,
+      "properties": {
+        "Tenant_id": {
+          "type": "string",
+          "minLength": 1,
+          "description": "Tenant identifier; inferred from declared primary key."
+        }
+      }
+    },
+    "Role_Repository": {
+      "type": "object",
+      "x-primary-key": "Role_ID",
+      "required": [
+        "Role_ID"
+      ],
+      "additionalProperties": false,
+      "properties": {
+        "Role_ID": {
+          "type": "string",
+          "description": "Every ROLE has an ID generated after the new description is generated and just prior to post of the JOB, role is different than JOB",
+          "minLength": 1
+        },
+        "Role_Name": {
+          "type": "string",
+          "description": "This is name of the Role"
+        },
+        "Role_Level": {
+          "type": "string",
+          "description": "This is designation or grade level"
+        },
+        "Role_Function": {
+          "type": "string",
+          "description": "this describes the function individual contributor, team lead, architecture, team member etc"
+        },
+        "Role_Description": {
+          "type": "string",
+          "description": "As detailed as possible description of the role, try to get at minimum 3 sentences or summarize and present"
+        },
+        "Role_Posting_Date": {
+          "type": "string",
+          "description": "MM/DD/YYYY of the date role was first posted, once posted others are referring it but not changing it, however other objects can be updated"
+        },
+        "Skill": {
+          "type": "string",
+          "description": "skill defines job specific outline, like a mechanic could be a lathe operator, a programer could be for any language, a nurse could be for the specific field etc"
+        },
+        "Personality_Merge": {
+          "type": "string",
+          "description": "Psychonalysis personality types are not known to managers, instead prompt like work with alarge team, innovate in a small team, independant hinking etc are more apt "
+        },
+        "Outlier_Skill": {
+          "type": "string",
+          "description": "Thinking out of box is always wanted but not accepted in a conforming environment, its just too risky but better to get it ranked in percentage"
+        },
+        "Conjugate_Skill": {
+          "type": "string",
+          "description": "A lathe operator can be a fitter, a software developer can be a tester, an architect. A lathe operator can repair or handle other equiment etc"
+        },
+        "Management_Skill": {
+          "type": "string",
+          "description": "testing abillity to do small , and large team  management with owining responsibillity in conjunct with persoanlity type output can be hands on, hands off, delegted, empirical, random checks with  small, medium or large conjunct"
+        },
+        "Salary_Range": {
+          "type": "string",
+          "description": "With min <  max check"
+        },
+        "Last_Posted_Date": {
+          "type": "string",
+          "description": "MM/DD/YYYY"
+        },
+        "Repeat_Posting": {
+          "type": "string",
+          "description": "count"
+        },
+        "Posted_Channel": {
+          "type": "string",
+          "description": "list all chanells and update with new channel posted"
+        },
+        "Number_Of_Resume_Received_And_Channel": {
+          "type": "string",
+          "description": "example update Channel Name : count e.g Linkein : 21 and this needs to be updated"
+        },
+        "Personality_Analysis": {
+          "type": "boolean",
+          "description": "is this selected for this role"
+        },
+        "A_B": {
+          "type": "boolean",
+          "description": "is this selected for this role"
+        },
+        "OCEAN": {
+          "type": "boolean",
+          "description": "is this selected for this role"
+        },
+        "Enneagram": {
+          "type": "boolean",
+          "description": "is this selected for this role"
+        },
+        "Skill_Analysis": {
+          "type": "boolean",
+          "description": "is this selected for this role"
+        },
+        "Capability_Analysis": {
+          "type": "boolean",
+          "description": "is this selected for this role"
+        },
+        "Conjugate_Skill_Analysis": {
+          "type": "boolean",
+          "description": "is this selected for this role"
+        },
+        "Conversational_Critical_Thinking": {
+          "type": "boolean",
+          "description": "is this selected for this role"
+        },
+        "Conversational_Grasping_Ability": {
+          "type": "boolean",
+          "description": "is this selected for this role"
+        },
+        "Conversation_Engagement_Capability": {
+          "type": "boolean",
+          "description": "is this selected for this role"
+        },
+        "Role_Play_Analysis": {
+          "type": "boolean",
+          "description": "is this selected for this role"
+        },
+        "Mathematic_Reasoning": {
+          "type": "boolean",
+          "description": "is this selected for this role"
+        },
+        "Spatial_Reasoning": {
+          "type": "boolean",
+          "description": "is this selected for this role"
+        },
+        "Language_Reasoning": {
+          "type": "boolean",
+          "description": "is this selected for this role"
+        },
+        "Outlier_Management_Oriented": {
+          "type": "boolean",
+          "description": "is this selected for this role"
+        },
+        "Outlier_Skill_Oriented": {
+          "type": "boolean",
+          "description": "is this selected for this role"
+        },
+        "Challenge_Response_Conversational": {
+          "type": "boolean",
+          "description": "is this selected for this role"
+        },
+        "Challenge_Response_Skill_Oriented": {
+          "type": "boolean",
+          "description": "is this selected for this role"
+        },
+        "Forced_Circumstances_Reaction_Skill": {
+          "type": "boolean",
+          "description": "is this selected for this role"
+        },
+        "Forced_Circumstances_Reaction_Management": {
+          "type": "boolean",
+          "description": "is this selected for this role"
+        },
+        "Organizational_Awareness": {
+          "type": "boolean",
+          "description": "is this selected for this role"
+        },
+        "Role_Awareness": {
+          "type": "boolean",
+          "description": "is this selected for this role"
+        },
+        "Team_Role_Play": {
+          "type": "boolean",
+          "description": "is this selected for this role"
+        },
+        "Organization_Introduction": {
+          "type": "string",
+          "description": "The organizational introduction summary for this role, contians the full description"
+        }
+      }
+    },
+    "Candidate_Repository": {
+      "type": "object",
+      "x-primary-key": "Candidate_ID",
+      "required": [
+        "Candidate_ID"
+      ],
+      "additionalProperties": false,
+      "properties": {
+        "Candidate_ID": {
+          "type": "string",
+          "description": "This is for only candidates who have been shortlisted for interview, and this ID will be added to Resume repository of the applicant",
+          "minLength": 1
+        },
+        "Candidate_Email_Address": {
+          "type": "string",
+          "description": "Only one unique email address"
+        },
+        "Position_ID": {
+          "type": "string",
+          "description": "Position for which this candidate has been selected"
+        },
+        "Role_ID": {
+          "type": "string",
+          "description": "Role ID assosicated with that position"
+        },
+        "Resume_Posting_Date": {
+          "type": "string",
+          "description": "Channel URL : posting date, channel URL : posting date"
+        },
+        "Resume_Update_Date": {
+          "type": "string",
+          "description": "Last update date of the resume"
+        },
+        "Interview_Notification_Date": {
+          "type": "string",
+          "description": "when first notification was given"
+        },
+        "Total_Number_Of_Notifications": {
+          "type": "number",
+          "description": "total count of notification"
+        },
+        "Interview_Date": {
+          "type": "string",
+          "description": "Date the candidate was interviewd"
+        },
+        "Personality_Analysis": {
+          "type": "string",
+          "description": "summary from predefined type"
+        },
+        "A_B": {
+          "type": "string",
+          "description": "A_B score of each type"
+        },
+        "OCEAN": {
+          "type": "string",
+          "description": "All the 5 parameters score"
+        },
+        "Enneagram": {
+          "type": "string",
+          "description": "All the 8 evalution metrics and score"
+        },
+        "Skill_Analysis_0": {
+          "_comment": "could be mutiple",
+          "type": "string",
+          "description": "skill area : score out of 10"
+        },
+        "Capability_Analysis_0": {
+          "_comment": "could be mutiple",
+          "type": "string",
+          "description": "capanaillity area  : score out of 10"
+        },
+        "Conjugate_Skill_Analysis": {
+          "type": "string",
+          "description": "conjugsate skill tested and score"
+        },
+        "Conversational_Critical_Thinking": {
+          "type": "number",
+          "description": "score out of 10"
+        },
+        "Conversational_Grasping_Ability": {
+          "type": "number",
+          "description": "score out of 10"
+        },
+        "Conversation_Engagement_Capability": {
+          "type": "number",
+          "description": "score out of 10"
+        },
+        "Role_Play_Analysis": {
+          "type": "number",
+          "description": "score out of 10"
+        },
+        "Mathematic_Reasoning": {
+          "type": "number",
+          "description": "score out of 10"
+        },
+        "Spatial_Reasoning": {
+          "type": "number",
+          "description": "score out of 10"
+        },
+        "Language_Reasoning": {
+          "type": "number",
+          "description": "score out of 10"
+        },
+        "Outlier_Management_Oriented": {
+          "type": "number",
+          "description": "score out of 10"
+        },
+        "Outlier_Skill_Oriented": {
+          "type": "number",
+          "description": "score out of 10"
+        },
+        "Challenge_Response_Conversational": {
+          "type": "number",
+          "description": "score out of 10"
+        },
+        "Challenge_Response_Skill_Oriented": {
+          "type": "number",
+          "description": "score out of 10"
+        },
+        "Forced_Circumstances_Reaction_Skill": {
+          "type": "number",
+          "description": "score out of 10"
+        },
+        "Forced_Circumstances_Reaction_Management": {
+          "type": "number",
+          "description": "score out of 10"
+        },
+        "Organizational_Awareness": {
+          "type": "number",
+          "description": "score out of 10"
+        },
+        "Role_Awareness": {
+          "type": "number",
+          "description": "score out of 10"
+        },
+        "Team_Role_Play": {
+          "type": "number",
+          "description": "score out of 10"
+        },
+        "Interview_Status": {
+          "type": "string",
+          "description": "completed/incomplete/abandoned"
+        },
+        "Interview_time_taken": {
+          "type": "number",
+          "description": "time taken in minutes"
+        },
+        "Interview_Transcripts": {
+          "type": "string",
+          "description": "entire interview transcript to be vecotrised using the above areas"
+        },
+        "Information_Date": {
+          "type": "string",
+          "description": "Date post interview contact was established"
+        },
+        "Offered_Date": {
+          "type": "string",
+          "description": "when was offer communicated if any"
+        },
+        "Offered_Status": {
+          "type": "string",
+          "description": "First/Second/Third"
+        },
+        "Offered_Rejection_Reason": {
+          "type": "string",
+          "description": "reason if the candidate rejected the offer, entire conversation transcript"
+        },
+        "Standby_Affirmation_Status": {
+          "type": "string",
+          "description": "Date standby was informed of the updated status"
+        }
+      }
+    },
+    "Resume_Repository": {
+      "type": "object",
+      "x-primary-key": "Resume_ID",
+      "required": [
+        "Resume_ID"
+      ],
+      "additionalProperties": false,
+      "properties": {
+        "Resume_ID": {
+          "type": "string",
+          "description": "COndidate always has oiny one combined vectorized resume, the resume ID even if the candidate has not been selected for any interview",
+          "minLength": 1
+        },
+        "Email_Address": {
+          "type": "string",
+          "description": "unique emmail address assciated with the resume"
+        },
+        "Resume_URL": {
+          "_comment": "could be mutiple",
+          "type": "string",
+          "description": "URL used to submit the resume"
+        },
+        "Date_Received": {
+          "_comment": "could be mutiple",
+          "type": "string",
+          "description": "Date this specific resume was received"
+        },
+        "Resume_Document": {
+          "type": "string",
+          "description": "This is the chronologically combined resume"
+        },
+        "Date_Update_Received": {
+          "_comment": "could be mutiple",
+          "type": "string",
+          "description": "Date this specific resume was received"
+        },
+        "Resume_Update_Document": {
+          "_comment": "could be mutiple",
+          "type": "string",
+          "description": "Date this specific resume was received"
+        },
+        "Primary_Skill_Object": {
+          "_comment": "could be mutiple",
+          "type": "string",
+          "description": "Multiple skill areas to be listed"
+        },
+        "Primary_Role": {
+          "_comment": "could be mutiple",
+          "type": "string",
+          "description": "Primamry role for which being considereg"
+        },
+        "Candidate_ID": {
+          "type": "string",
+          "description": "unique ID first time the candidate was selected for interview"
+        }
+      }
+    },
+    "Audit_Repository": {
+      "type": "object",
+      "x-primary-key": "Audit_ID",
+      "required": [
+        "Audit_ID"
+      ],
+      "additionalProperties": false,
+      "properties": {
+        "Audit_ID": {
+          "type": "string",
+          "description": "Name of the routine posting the audit",
+          "minLength": 1
+        },
+        "Date": {
+          "type": "string",
+          "description": "Date"
+        },
+        "Time": {
+          "type": "string",
+          "description": "Time is 24 hours format converted to GMT"
+        },
+        "Event": {
+          "type": "string",
+          "description": "Description of the even"
+        },
+        "Event_Type": {
+          "type": "string",
+          "description": "INFO/DEBU/ERROR/FATAL/STARTED"
+        }
+      }
+    },
+    "Position_Repository": {
+      "type": "object",
+      "x-primary-key": "Position_ID",
+      "required": [
+        "Position_ID"
+      ],
+      "additionalProperties": false,
+      "properties": {
+        "Position_ID": {
+          "type": "string",
+          "description": "Unique psotion ID generated when position was first submitted but still in draft more",
+          "minLength": 1
+        },
+        "Role_ID": {
+          "type": "string",
+          "description": "Role ID that is assocaited wth this position"
+        },
+        "Position_Description": {
+          "type": "string",
+          "description": "Job description entered by hirin manager"
+        },
+        "Department": {
+          "type": "string",
+          "description": "Department in which this posiiton belongs"
+        },
+        "Hiring_Manager": {
+          "type": "string",
+          "description": "email address of the hiring manager"
+        },
+        "Stake_Holder_Email_0": {
+          "_comment": "could be multiple",
+          "type": "string",
+          "description": "email address of the stake holder"
+        },
+        "Stake_Holder_Description_0": {
+          "_comment": "could be multiple",
+          "type": "string",
+          "description": "description entered by the stake holder"
+        },
+        "Salary_Range": {
+          "type": "string",
+          "description": "salary range"
+        },
+        "Location": {
+          "type": "string",
+          "description": "location city or zip, and country"
+        },
+        "Work_Type": {
+          "type": "string",
+          "description": "INHOUSE/HYBRID/REMOTE"
+        },
+        "Hiring_Type": {
+          "type": "string",
+          "description": "CONTRACT/FULL_TIME/PART_TIME"
+        },
+        "Posting_Date": {
+          "type": "string",
+          "description": "channel and Date strting multiple"
+        },
+        "Resume_Analysis_Style": {
+          "type": "string",
+          "description": "Analysis priority"
+        },
+        "Resume_Count": {
+          "type": "number",
+          "description": "Total number of resumes receved for this position"
+        },
+        "Resume_Review_Date": {
+          "type": "string",
+          "description": "when did the interview rankling was done and approved"
+        },
+        "No_Of_Interviews_Selected": {
+          "type": "number",
+          "description": "total number of candidates selected for interviewing"
+        },
+        "Number_Interviewed": {
+          "type": "number",
+          "description": "total number of candidates interviewed"
+        },
+        "Total_Shortlisted": {
+          "type": "number",
+          "description": "number shortlisted for final interview"
+        },
+        "Total_In_Person_Interview": {
+          "type": "number",
+          "description": "Number of candidate selected for final interview"
+        },
+        "Person_Interview_candidate_id_0": {
+          "_comment": "could be multiple",
+          "type": "string",
+          "description": "candidate id selected for final interview"
+        },
+        "Position_Closure_Date": {
+          "type": "string",
+          "description": "Date the position was closed"
+        },
+        "Position_On_Hold_Flag": {
+          "type": "boolean",
+          "description": "The flag would be 1 if posiiton is on hole"
+        },
+        "On_Hold_Date": {
+          "type": "string",
+          "description": "The date position was on hold"
+        },
+        "On_UnHold_Date": {
+          "type": "string",
+          "description": "The date position was on reinstated"
+        },
+        "Position_Expiry_Date": {
+          "type": "string",
+          "description": "when the position should expire if not hired"
+        },
+        "Position_Status": {
+          "type": "string",
+          "description": "exisitng status string"
+        },
+        "Hired_Salary": {
+          "type": "string",
+          "description": "salary at which the candidate was hired"
+        }
+      }
+    },
+    "user_repository": {
+      "type": "object",
+      "x-primary-key": "user_email_id",
+      "required": [
+        "user_email_id"
+      ],
+      "additionalProperties": false,
+      "properties": {
+        "user_email_id": {
+          "type": "string",
+          "description": "user email id",
+          "minLength": 1
+        },
+        "Date": {
+          "type": "string",
+          "description": "Date"
+        },
+        "User_query": {
+          "type": "string",
+          "description": "Last query asked by the user"
+        },
+        "Graph_query": {
+          "type": "string",
+          "description": "Last query generated  by the user graph conjunct"
+        }
+      }
+    }
+  }
+}

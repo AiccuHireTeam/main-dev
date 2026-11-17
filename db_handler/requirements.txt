@@ -1,0 +1,4 @@
+SQLAlchemy>=2.0,<2.1
+jsonschema>=4.23,<5
+psycopg[binary]>=3.2,<4
+snowflake-sqlalchemy>=1.7,<2

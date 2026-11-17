@@ -1,0 +1,29 @@
+{
+  "active_profile": "local",
+  "profiles": {
+    "local": {"driver": "sqlite", "database": "data/recruitment.db"},
+    "local_postgres": {
+      "driver": "postgresql", "host": "localhost", "port": 5432,
+      "database": "recruitment", "username": "recruitment",
+      "password_env": "LOCAL_DB_PASSWORD", "sslmode": "prefer"
+    },
+    "gcp": {
+      "driver": "postgresql", "host_env": "GCP_DB_HOST", "port": 5432,
+      "database": "recruitment", "username_env": "GCP_DB_USER",
+      "password_env": "GCP_DB_PASSWORD", "sslmode": "verify-full",
+      "sslrootcert_env": "GCP_DB_SSLROOTCERT"
+    },
+    "aws": {
+      "driver": "postgresql", "host_env": "AWS_DB_HOST", "port": 5432,
+      "database": "recruitment", "username_env": "AWS_DB_USER",
+      "password_env": "AWS_DB_PASSWORD", "sslmode": "verify-full",
+      "sslrootcert_env": "AWS_DB_SSLROOTCERT"
+    },
+    "snowflake": {
+      "driver": "snowflake", "account_env": "SNOWFLAKE_ACCOUNT",
+      "username_env": "SNOWFLAKE_USER", "password_env": "SNOWFLAKE_PASSWORD",
+      "database": "RECRUITMENT", "schema": "PUBLIC",
+      "warehouse_env": "SNOWFLAKE_WAREHOUSE", "role_env": "SNOWFLAKE_ROLE"
+    }
+  }
+}
