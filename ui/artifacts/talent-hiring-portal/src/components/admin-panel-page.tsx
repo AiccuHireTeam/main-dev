@@ -8,12 +8,22 @@ import {
   CircleHelp,
   LockKeyhole,
   LogOut,
-  Radio,
+  Pencil,
   SlidersHorizontal,
+  Trash2,
   UsersRound,
-  Video,
 } from "lucide-react";
 import { type WorkspaceRole } from "@/lib/internal-access";
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from "@/components/ui/alert-dialog";
 
 export type AdminUserRecord = {
   id: string;
@@ -41,6 +51,11 @@ type AdminPanelPageProps = {
   users: AdminUserRecord[];
   settings: AdminPanelSettings;
   onAddUser: (user: NewAdminUser) => string | undefined;
+  onUpdateUserRoles: (
+    userId: string,
+    roles: WorkspaceRole[],
+  ) => string | undefined;
+  onDeleteUser: (userId: string) => string | undefined;
   onSaveSettings: (settings: AdminPanelSettings) => string | undefined;
   onBackToDashboard: () => void;
   onSignOut: () => void;
@@ -63,11 +78,88 @@ function roleStyle(role: WorkspaceRole) {
   return "bg-[#edf0e8] text-[#5e705d]";
 }
 
+const tierFeatures: { feature: string; values: [string, string, string] }[] = [
+  { feature: "Login", values: ["Y", "Y", "Y"] },
+  { feature: "Job Creation", values: ["Y", "Y", "Y"] },
+  { feature: "Job Duplication", values: ["Y", "Y", "Y"] },
+  { feature: "Stakeholder", values: ["N", "Y", "Y"] },
+  { feature: "Job specific Org Description", values: ["N", "Y", "Y"] },
+  { feature: "Dynamic Organization description", values: ["N", "N", "Y"] },
+  {
+    feature: "Job specific completion queries (essential)",
+    values: ["Y", "Y", "Y"],
+  },
+  { feature: "Job specific completion queries", values: ["N", "Y", "Y"] },
+  {
+    feature: "Job specific completion queries (AI augmented)",
+    values: ["N", "N", "Y"],
+  },
+  { feature: "Job Posting channels", values: ["5", "10", "10+"] },
+  {
+    feature: "Job posting to conversational engines",
+    values: ["N", "N", "Y"],
+  },
+  { feature: "Candidate Resume query and update", values: ["N", "Y", "Y"] },
+  { feature: "Weighted priority Ranking", values: ["N", "Y", "Y"] },
+  { feature: "Role specific resume creation", values: ["N", "N", "Y"] },
+  { feature: "Total resume ranked per Job", values: ["100", "200", "200+"] },
+  {
+    feature: "Max Evaluation Criteria Selection",
+    values: ["5", "12", "20+"],
+  },
+  { feature: "Interview flow Static", values: ["Y", "Y", "Y"] },
+  { feature: "Interview Flow Dynamic", values: ["N", "Y", "Y"] },
+  {
+    feature: "Maximum Interview per Job Posting",
+    values: ["10", "25", "50"],
+  },
+  { feature: "Weighted Interview Ranking", values: ["N", "N", "Y"] },
+  {
+    feature: "Customer Support",
+    values: ["Weekday 9-5", "Weekday 9-7", "Always"],
+  },
+  { feature: "Resume Partners", values: ["N", "3", "All"] },
+  { feature: "Num of Active users", values: ["10", "20", "50"] },
+  {
+    feature: "Number of Dashboard queries per month",
+    values: ["100", "300", "500"],
+  },
+  { feature: "Hire vs Aquire", values: ["N", "N", "Optional"] },
+  { feature: "Inference and alerting", values: ["", "", ""] },
+  {
+    feature: "Candidate continuity Follow-up",
+    values: ["N", "Optional", "Optional"],
+  },
+  { feature: "Post Offer engagement", values: ["N", "Optional", "Optional"] },
+  {
+    feature: "Role specific Social Network creation",
+    values: ["N", "Optional", "Optional"],
+  },
+  { feature: "Position Market Analysis", values: ["2", "5", "5+"] },
+];
+
+const tierDefinitions = [
+  {
+    name: "Silver",
+    description: "Automates the existing Hiring Process",
+  },
+  {
+    name: "Gold",
+    description: "Automates to get most capable candidate",
+  },
+  {
+    name: "Platinum",
+    description: "Provides 360 degree fit",
+  },
+] as const;
+
 export function AdminPanelPage({
   adminEmail,
   users,
   settings,
   onAddUser,
+  onUpdateUserRoles,
+  onDeleteUser,
   onSaveSettings,
   onBackToDashboard,
   onSignOut,
@@ -82,6 +174,54 @@ export function AdminPanelPage({
   const [draftSettings, setDraftSettings] = useState(settings);
   const [settingsNotice, setSettingsNotice] = useState("");
   const [settingsError, setSettingsError] = useState("");
+  const [editingUser, setEditingUser] = useState<AdminUserRecord | null>(null);
+  const [editRoles, setEditRoles] = useState<WorkspaceRole[]>([]);
+  const [editError, setEditError] = useState("");
+  const [deleteTarget, setDeleteTarget] = useState<AdminUserRecord | null>(null);
+  const [directoryError, setDirectoryError] = useState("");
+  const [directoryNotice, setDirectoryNotice] = useState("");
+
+  const startEditingUser = (user: AdminUserRecord) => {
+    setEditingUser(user);
+    setEditRoles([...user.roles]);
+    setEditError("");
+    setDirectoryError("");
+    setDirectoryNotice("");
+  };
+
+  const submitUserAccess = (event: FormEvent<HTMLFormElement>) => {
+    event.preventDefault();
+    if (!editingUser) return;
+    if (editRoles.length === 0) {
+      setEditError("Select at least one access type.");
+      return;
+    }
+    const saveError = onUpdateUserRoles(editingUser.id, editRoles);
+    if (saveError) {
+      setEditError(saveError);
+      return;
+    }
+    setDirectoryNotice(
+      `Access updated for ${editingUser.firstName} ${editingUser.lastName}.`,
+    );
+    setEditingUser(null);
+    setEditError("");
+  };
+
+  const confirmDeleteUser = () => {
+    if (!deleteTarget) return;
+    const deleteError = onDeleteUser(deleteTarget.id);
+    if (deleteError) {
+      setDirectoryError(deleteError);
+      setDirectoryNotice("");
+    } else {
+      setDirectoryNotice(
+        `${deleteTarget.firstName} ${deleteTarget.lastName} was removed from the directory.`,
+      );
+      setDirectoryError("");
+    }
+    setDeleteTarget(null);
+  };
 
   useEffect(() => {
     setDraftSettings({
@@ -175,8 +315,6 @@ export function AdminPanelPage({
   }[] = [
     { id: "users", label: "Users", Icon: UsersRound },
     { id: "configuration", label: "Configuration", Icon: SlidersHorizontal },
-    { id: "resources", label: "Resource Management", Icon: Radio },
-    { id: "interviews", label: "Candidate Management", Icon: Video },
     { id: "positions", label: "Position Management", Icon: BriefcaseBusiness },
   ];
 
@@ -406,60 +544,6 @@ export function AdminPanelPage({
                   </form>
                 </section>
 
-                <section
-                  aria-labelledby="workspace-limits-heading"
-                  className="rounded-[20px] border border-[#e2e2d9] bg-[#fbfaf5] p-5 sm:p-7"
-                >
-                  <div className="mb-5">
-                    <div className="text-[9px] font-bold uppercase tracking-[.15em] text-[#829187]">
-                      Workspace limits
-                    </div>
-                    <h2
-                      id="workspace-limits-heading"
-                      className="serif mt-1 text-[21px] font-bold tracking-[-.04em] text-[#30484a]"
-                    >
-                      Account capacity
-                    </h2>
-                    <p className="mt-1 text-[11px] leading-5 text-[#819089]">
-                      Current workspace limits are managed by your plan.
-                    </p>
-                  </div>
-                  <div className="grid gap-4 sm:grid-cols-2">
-                    <div>
-                      <label
-                        className={labelClass}
-                        htmlFor="maximum-active-users"
-                      >
-                        Maximum Active Users
-                      </label>
-                      <input
-                        id="maximum-active-users"
-                        className={`${inputClass} cursor-not-allowed border-[#e8e7e0] bg-[#eeede7] text-[#8b918b]`}
-                        type="number"
-                        value={20}
-                        readOnly
-                        aria-readonly="true"
-                      />
-                    </div>
-                    <div>
-                      <label
-                        className={labelClass}
-                        htmlFor="monthly-dashboard-queries"
-                      >
-                        Number of Dashboard Queries per month
-                      </label>
-                      <input
-                        id="monthly-dashboard-queries"
-                        className={`${inputClass} cursor-not-allowed border-[#e8e7e0] bg-[#eeede7] text-[#8b918b]`}
-                        type="number"
-                        value={500}
-                        readOnly
-                        aria-readonly="true"
-                      />
-                    </div>
-                  </div>
-                </section>
-
                 <section className="overflow-hidden rounded-[20px] border border-[#e2e2d9] bg-[#fbfaf5]">
                   <div className="flex flex-col justify-between gap-2 border-b border-[#ece9df] px-5 py-5 sm:flex-row sm:items-end sm:px-7">
                     <div>
@@ -476,16 +560,27 @@ export function AdminPanelPage({
                   </div>
                   {users.length ? (
                     <>
-                      <div className="hidden grid-cols-[minmax(0,1.4fr)_minmax(150px,1fr)_minmax(150px,1fr)] gap-4 bg-[#f7f6ef] px-7 py-2.5 text-[9px] font-bold uppercase tracking-[.12em] text-[#98a098] sm:grid">
+                      <div className="hidden grid-cols-[minmax(0,1.3fr)_minmax(150px,1fr)_minmax(130px,1fr)_minmax(165px,.9fr)] gap-4 bg-[#f7f6ef] px-7 py-2.5 text-[9px] font-bold uppercase tracking-[.12em] text-[#98a098] sm:grid">
                         <span>Name</span>
                         <span>Email</span>
                         <span>Access</span>
+                        <span>Manage</span>
                       </div>
+                      {directoryError && (
+                        <p role="alert" className="mx-5 mt-4 rounded-xl border border-[#ecd4cd] bg-[#fbefea] px-3.5 py-2.5 text-[11px] text-[#9a5548] sm:mx-7">
+                          {directoryError}
+                        </p>
+                      )}
+                      {directoryNotice && (
+                        <p role="status" className="mx-5 mt-4 rounded-xl border border-[#dce5db] bg-[#edf3ec] px-3.5 py-2.5 text-[11px] text-[#42665a] sm:mx-7">
+                          {directoryNotice}
+                        </p>
+                      )}
                       <ul className="divide-y divide-[#eeece3]">
                         {users.map((user) => (
                           <li
                             key={user.id}
-                            className="grid gap-2 px-5 py-4 sm:grid-cols-[minmax(0,1.4fr)_minmax(150px,1fr)_minmax(150px,1fr)] sm:items-center sm:gap-4 sm:px-7"
+                            className="grid gap-2 px-5 py-4 sm:grid-cols-[minmax(0,1.3fr)_minmax(150px,1fr)_minmax(130px,1fr)_minmax(165px,.9fr)] sm:items-center sm:gap-4 sm:px-7"
                           >
                             <div className="flex min-w-0 items-center gap-3">
                               <div className="grid h-9 w-9 shrink-0 place-items-center rounded-full bg-[#e8ece1] text-[10px] font-bold uppercase text-[#547065]">
@@ -512,6 +607,36 @@ export function AdminPanelPage({
                                   {userRole}
                                 </span>
                               ))}
+                            </div>
+                            <div className="flex items-center gap-2 sm:justify-end">
+                              <button
+                                type="button"
+                                onClick={() => startEditingUser(user)}
+                                aria-label={`Edit access for ${user.firstName} ${user.lastName}`}
+                                data-testid={`button-edit-access-${user.id}`}
+                                className="inline-flex min-h-9 items-center gap-1.5 rounded-lg border border-[#dfe4da] bg-[#fffefa] px-2.5 text-[10px] font-semibold text-[#526a60] hover:bg-[#f1f4ed] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#438274]"
+                              >
+                                <Pencil size={13} aria-hidden="true" />
+                                Edit access
+                              </button>
+                              <button
+                                type="button"
+                                onClick={() => {
+                                  setDeleteTarget(user);
+                                  setDirectoryError("");
+                                  setDirectoryNotice("");
+                                }}
+                                aria-label={`Delete ${user.firstName} ${user.lastName}`}
+                                data-testid={`button-delete-user-${user.id}`}
+                                title={
+                                  user.email.toLowerCase() === adminEmail.toLowerCase()
+                                    ? "The signed-in account cannot be deleted"
+                                    : "Delete this user"
+                                }
+                                className="inline-flex h-9 w-9 items-center justify-center rounded-lg border border-[#ead7d1] bg-[#fbf3f0] text-[#985548] hover:bg-[#f5e9e5] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#b36b5f]"
+                              >
+                                <Trash2 size={14} aria-hidden="true" />
+                              </button>
                             </div>
                           </li>
                         ))}
@@ -594,6 +719,7 @@ export function AdminPanelPage({
                     workspace.
                   </p>
                 </div>
+                <TierComparisonTable />
                 <form onSubmit={saveSettings}>
                   <div className="divide-y divide-[#ece9df]">
                     <SettingRow
@@ -810,6 +936,148 @@ export function AdminPanelPage({
             )}
           </main>
         </div>
+        <AlertDialog
+          open={Boolean(editingUser)}
+          onOpenChange={(open) => {
+            if (!open) {
+              setEditingUser(null);
+              setEditError("");
+            }
+          }}
+        >
+          <AlertDialogContent className="border-[#e2e2d9] bg-[#fbfaf5] text-[#30484a] sm:max-w-[480px]">
+            <AlertDialogHeader>
+              <AlertDialogTitle className="serif text-[22px] font-bold tracking-[-.04em]">
+                Edit user access
+              </AlertDialogTitle>
+              <AlertDialogDescription className="text-[11px] leading-5 text-[#819089]">
+                {editingUser
+                  ? `Choose the roles assigned to ${editingUser.firstName} ${editingUser.lastName}.`
+                  : "Choose the roles assigned to this user."}
+              </AlertDialogDescription>
+            </AlertDialogHeader>
+            {editingUser && (
+              <form onSubmit={submitUserAccess}>
+                <div className="mb-4 rounded-xl border border-[#e7e5dc] bg-[#f6f5ee] px-3.5 py-3">
+                  <p className="text-[11px] font-semibold text-[#435a54]">
+                    {editingUser.firstName} {editingUser.lastName}
+                  </p>
+                  <p className="mt-1 break-all text-[10px] text-[#829087]">
+                    {editingUser.email}
+                  </p>
+                </div>
+                <fieldset>
+                  <legend className={labelClass}>Access roles</legend>
+                  <div className="grid gap-2 sm:grid-cols-3">
+                    {(
+                      [
+                        ["Admin", "Admin"],
+                        ["Hiring Manager", "Hiring Manager"],
+                        ["Viewer", "Viewer"],
+                      ] as const
+                    ).map(([value, label]) => (
+                      <label
+                        key={value}
+                        className="flex min-h-11 cursor-pointer items-center gap-2.5 rounded-xl border border-[#dfe1d8] bg-[#fffefa] px-3 text-[11px] font-semibold text-[#50635d] transition hover:border-[#a7bbb0] focus-within:ring-4 focus-within:ring-[#438274]/10"
+                      >
+                        <input
+                          type="checkbox"
+                          checked={editRoles.includes(value)}
+                          onChange={() => {
+                            setEditRoles((current) =>
+                              current.includes(value)
+                                ? current.filter((role) => role !== value)
+                                : [...current, value],
+                            );
+                            setEditError("");
+                          }}
+                          className="h-4 w-4 accent-[#205e53]"
+                        />
+                        {label}
+                      </label>
+                    ))}
+                  </div>
+                  <p className="mt-2 text-[9px] text-[#8a958e]">
+                    Select one or more roles. At least one Admin account must remain.
+                  </p>
+                </fieldset>
+                {editError && (
+                  <p
+                    role="alert"
+                    className="mt-4 rounded-xl border border-[#ecd4cd] bg-[#fbefea] px-3.5 py-2.5 text-[11px] text-[#9a5548]"
+                  >
+                    {editError}
+                  </p>
+                )}
+                <AlertDialogFooter className="mt-6 gap-2 border-t border-[#ece9df] pt-4">
+                  <AlertDialogCancel asChild>
+                    <button
+                      type="button"
+                      onClick={() => setEditingUser(null)}
+                      className="min-h-10 rounded-xl border border-[#dfe1d8] bg-[#fffefa] px-4 text-[11px] font-semibold text-[#526664] hover:bg-[#f1efe7]"
+                    >
+                      Cancel
+                    </button>
+                  </AlertDialogCancel>
+                  <button
+                    type="submit"
+                    data-testid="button-save-user-access"
+                    className="inline-flex min-h-10 items-center justify-center gap-2 rounded-xl bg-[#205e53] px-4 text-[11px] font-bold text-white hover:bg-[#184d44]"
+                  >
+                    Save access <Check size={14} aria-hidden="true" />
+                  </button>
+                </AlertDialogFooter>
+              </form>
+            )}
+          </AlertDialogContent>
+        </AlertDialog>
+        <AlertDialog
+          open={Boolean(deleteTarget)}
+          onOpenChange={(open) => {
+            if (!open) setDeleteTarget(null);
+          }}
+        >
+          <AlertDialogContent className="border-[#e2e2d9] bg-[#fbfaf5] text-[#30484a]">
+            <AlertDialogHeader>
+              <AlertDialogTitle>Delete this user?</AlertDialogTitle>
+              <AlertDialogDescription className="text-[11px] leading-5 text-[#74817b]">
+                {deleteTarget
+                  ? `${deleteTarget.firstName} ${deleteTarget.lastName} (${deleteTarget.email}) will be removed from the browser demo directory.`
+                  : "This user will be removed from the browser demo directory."}
+              </AlertDialogDescription>
+            </AlertDialogHeader>
+            <AlertDialogFooter>
+              <AlertDialogCancel>Cancel</AlertDialogCancel>
+              <AlertDialogAction
+                onClick={confirmDeleteUser}
+                data-testid="button-confirm-delete-user"
+                disabled={
+                  !deleteTarget ||
+                  deleteTarget.email.toLowerCase() === adminEmail.toLowerCase() ||
+                  (deleteTarget.roles.includes("Admin") &&
+                    users.filter((user) => user.roles.includes("Admin")).length <= 1)
+                }
+                className="bg-[#a34c41] text-white hover:bg-[#8f3f36]"
+              >
+                Delete user
+              </AlertDialogAction>
+            </AlertDialogFooter>
+            {deleteTarget &&
+              deleteTarget.email.toLowerCase() === adminEmail.toLowerCase() && (
+                <p role="status" className="text-[10px] text-[#87643a]">
+                  The account currently signed in cannot be deleted.
+                </p>
+              )}
+            {deleteTarget &&
+              deleteTarget.roles.includes("Admin") &&
+              users.filter((user) => user.roles.includes("Admin")).length <=
+                1 && (
+                <p role="status" className="text-[10px] text-[#87643a]">
+                  The last Admin account cannot be deleted.
+                </p>
+              )}
+          </AlertDialogContent>
+        </AlertDialog>
         <footer className="mt-8 border-t border-[#e6e2d9] pt-4 text-center text-[10px] text-[#929b95]">
           AiccuHire · A demo workspace for thoughtful hiring
         </footer>
@@ -840,6 +1108,115 @@ function ReadOnlyAdminField({
         aria-readonly="true"
       />
     </div>
+  );
+}
+
+function TierComparisonTable() {
+  return (
+    <section className="mb-7 rounded-2xl border border-[#e4e3dc] bg-[#f2f1eb] p-3 sm:p-4">
+      <div className="mb-3 flex flex-wrap items-end justify-between gap-2">
+        <div>
+          <h3 className="text-[12px] font-bold text-[#465a53]">
+            Platform tiers
+          </h3>
+          <p className="mt-1 text-[10px] text-[#8b938d]">
+            Read-only feature comparison. Hover or focus a value for its detail
+            area.
+          </p>
+        </div>
+        <span className="rounded-full border border-[#d6dfd2] bg-[#e8efe7] px-2.5 py-1 text-[9px] font-bold uppercase tracking-[.1em] text-[#587563]">
+          Silver · Active
+        </span>
+      </div>
+      <div className="overflow-x-auto rounded-xl border border-[#e2e1da]">
+        <table className="w-full min-w-[940px] border-collapse text-left text-[10px]">
+          <thead>
+            <tr className="bg-[#e6e5de] text-[#64736c]">
+              <th scope="col" className="w-[31%] px-3 py-3 font-bold">
+                Features
+              </th>
+              {tierDefinitions.map((tier) => (
+                <th key={tier.name} scope="col" className="px-3 py-3 align-top">
+                  <span className="block text-[11px] font-bold text-[#52645d]">
+                    {tier.name}
+                    {tier.name === "Silver" && (
+                      <span className="ml-2 rounded-full bg-[#d9e5d8] px-1.5 py-0.5 text-[8px] font-bold uppercase tracking-wide text-[#587563]">
+                        Active
+                      </span>
+                    )}
+                  </span>
+                  <span className="mt-1 block max-w-[190px] font-normal leading-4 text-[#858e87]">
+                    {tier.description}
+                  </span>
+                </th>
+              ))}
+            </tr>
+          </thead>
+          <tbody>
+            {tierFeatures.map(({ feature, values }, rowIndex) => (
+              <tr
+                key={feature}
+                className={
+                  rowIndex % 2 === 0 ? "bg-[#f8f7f2]" : "bg-[#f1f0ea]"
+                }
+              >
+                <th
+                  scope="row"
+                  className="border-t border-[#e5e4dd] px-3 py-2 font-medium text-[#77817a]"
+                >
+                  {feature}
+                </th>
+                {values.map((value, tierIndex) => (
+                  <td
+                    key={`${feature}-${tierDefinitions[tierIndex].name}`}
+                    className="border-t border-[#e5e4dd] px-3 py-1.5 text-center"
+                  >
+                    <TierValue
+                      feature={feature}
+                      tier={tierDefinitions[tierIndex].name}
+                      value={value}
+                    />
+                  </td>
+                ))}
+              </tr>
+            ))}
+          </tbody>
+        </table>
+      </div>
+    </section>
+  );
+}
+
+function TierValue({
+  feature,
+  tier,
+  value,
+}: {
+  feature: string;
+  tier: string;
+  value: string;
+}) {
+  return (
+    <button
+      type="button"
+      aria-label={`${tier} value for ${feature}: ${value || "not specified"}. Hover for details.`}
+      title={`${tier} · ${feature}`}
+      className="group relative min-w-10 rounded-md px-2 py-1 font-medium text-[#858d87] outline-none transition hover:bg-[#e8e7e0] focus-visible:ring-2 focus-visible:ring-[#819487]"
+    >
+      {value || <span aria-hidden="true">&nbsp;</span>}
+      <span
+        role="tooltip"
+        className="pointer-events-none invisible absolute left-1/2 top-full z-30 mt-1 w-40 -translate-x-1/2 rounded-lg border border-[#dcded6] bg-[#fffefa] p-2 text-left opacity-0 shadow-lg transition group-hover:visible group-hover:opacity-100 group-focus-visible:visible group-focus-visible:opacity-100"
+      >
+        <span className="block text-[9px] font-bold text-[#61746b]">
+          {tier} details
+        </span>
+        <span
+          className="mt-1 block h-7 rounded border border-dashed border-[#e7e5dd] bg-[#f7f6f1]"
+          aria-label="Tier detail not configured"
+        />
+      </span>
+    </button>
   );
 }
 

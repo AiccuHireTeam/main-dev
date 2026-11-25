@@ -7,6 +7,7 @@ export type CandidateChatApplication = {
   status: string;
   detail: string;
   next: string;
+  resumeUpdateAvailable?: boolean;
 };
 
 export function answerCandidateApplicationQuestion(
@@ -63,14 +64,15 @@ export function answerCandidateApplicationQuestion(
   if (/\b(resume|cv)\b/.test(query)) {
     const updateable = applications.filter(
       (application) =>
-        application.status === "Application received" ||
-        application.status === "Follow-up Requested",
+        application.resumeUpdateAvailable !== false &&
+        (application.status === "Application received" ||
+        application.status === "Follow-up Requested"),
     );
     return updateable.length
       ? `You can update your resume from these application cards: ${updateable
           .map((application) => `${application.title} (${application.status})`)
           .join(", ")}. Select Update resume on the card.`
-      : "No application currently has a resume-update action.";
+      : "No application currently has a resume-update action. Submitted self-applications retain their selected resume versions; you can review them on the application record.";
   }
 
   if (/\b(interview|interviewing|schedule)\b/.test(query)) {

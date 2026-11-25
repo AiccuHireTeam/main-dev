@@ -83,3 +83,11 @@ test("AskAiccu stays within the supplied application data for unknown requests",
 
   assert.match(answer, /don’t include interviewer or recruiter names/);
 });
+
+test("AskAiccu does not offer an unsupported resume update for a submitted self-application", () => {
+  const answer = answerCandidateApplicationQuestion("Update my resume", [{
+    ...applications[0], status: "Application received", resumeUpdateAvailable: false,
+  }]);
+  assert.match(answer, /No application currently has a resume-update action/);
+  assert.match(answer, /selected resume versions/);
+});

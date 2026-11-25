@@ -19,6 +19,7 @@ import { useForm } from "react-hook-form";
 import { Form } from "@/components/ui/form";
 import type { HiringPosition, RoleApplicant } from "@/components/job-portal-pages";
 import { offerSelectionError } from "@/lib/offer-workflow";
+import { ApplicantSubmittedDetails } from "./self-application-records";
 import type {
   StakeholderInputResponse,
   StakeholderReviewDecision,
@@ -1052,6 +1053,7 @@ export function RoleDetailsPage({
                         <FileText size={13} className="shrink-0" />
                         <span className="truncate">{applicant.resumeName}</span>
                       </button>
+                      <ApplicantSubmittedDetails applicant={applicant} hasResumeFile={hasResumeFile} onOpenResume={onOpenResume} />
                     </td>
                     {isScorecardStage && (
                       <td className="whitespace-nowrap px-4 py-3">
@@ -1189,6 +1191,7 @@ export function RoleDetailsPage({
                     <FileText size={13} aria-hidden="true" className="shrink-0" />
                     <span className="truncate">{applicant.resumeName}</span>
                   </button>
+                  <ApplicantSubmittedDetails applicant={applicant} hasResumeFile={hasResumeFile} onOpenResume={onOpenResume} />
                 </div>
                 {isOfferSelectionStage ? (
                   <div className="mt-3 flex flex-wrap items-center justify-between gap-3 border-t border-[#ece9e1] pt-3">

@@ -12,6 +12,7 @@ import {
   Users,
 } from 'lucide-react';
 import { useMemo, useState, type FormEvent } from 'react';
+import type { ApplicationProfile, ResumeVersion } from '../lib/self-application';
 
 export type RoleApplicant = {
   id: string;
@@ -21,6 +22,10 @@ export type RoleApplicant = {
   rank: number;
   resumeName: string;
   selectedForInterview: boolean;
+  source?: 'self-application';
+  smsOptIn?: boolean;
+  profile?: ApplicationProfile;
+  resumeVersions?: ResumeVersion[];
   interviewConfirmed?: boolean;
   interviewed?: boolean;
   interviewedAt?: string;

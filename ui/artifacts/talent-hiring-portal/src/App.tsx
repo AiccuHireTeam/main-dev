@@ -8,6 +8,9 @@ import NotFound from "@/pages/not-found";
 import { Route, Switch, useLocation, useRoute, Router as WouterRouter } from "wouter";
 import { CandidateInterviewRoom } from "@/components/candidate-interview-room";
 import { CandidateApplicationChat } from "@/components/candidate-application-chat";
+import { PublicCareersPage } from "@/components/public-careers-page";
+import { SelfApplicationRecords, ApplicantSubmittedDetails } from "@/components/self-application-records";
+import { candidateApplicationsForEmail, consentedSelfIdentification, prepareSelfApplication, type ApplicationDraft, type SubmissionResult } from "@/lib/self-application";
 import { AnalyticsChat } from "@/components/analytics-chat";
 import { applyOfferAction, canManagePosition, type OfferAction } from "@/lib/offer-workflow";
 import {
@@ -254,7 +257,7 @@ function loadAdminUsers(): AdminUserRecord[] {
         continue;
       }
       const email = value.email.trim().toLowerCase();
-      if (!email || usersByEmail.has(email)) continue;
+      if (!email) continue;
       const userRoles: WorkspaceRole[] =
         "roles" in value && Array.isArray(value.roles)
           ? value.roles.filter(isWorkspaceRole)
@@ -1205,6 +1208,13 @@ function App() {
   const stakeholderAnswers = stakeholderFeedback.answers;
   const submitted = stakeholderFeedback.submittedJobIds;
   const [positions, setPositions] = useState<HiringPosition[]>(loadHiringPositions);
+  const [applicationEmail, setApplicationEmail] = useState(() => {
+    try { return sessionStorage.getItem("aiccuhire-self-application-email") ?? ""; } catch { return ""; }
+  });
+  const rememberApplicationEmail = (value: string) => {
+    setApplicationEmail(value);
+    try { sessionStorage.setItem("aiccuhire-self-application-email", value); } catch { /* The current page remains usable without storage. */ }
+  };
   const [candidateResumeFiles, setCandidateResumeFiles] = useState<
     Record<string, File>
   >({});
@@ -1263,6 +1273,32 @@ function App() {
       setPositionSaveError(
         "Changes remain available in this session, but could not be saved in this browser.",
       );
+    }
+  };
+  const submitSelfApplication = (positionId: string, draft: ApplicationDraft): SubmissionResult => {
+    try {
+      const id = `self-${crypto.randomUUID()}`;
+      const { applicant, nextPositions } = prepareSelfApplication(positions, positionId, draft, id);
+      const warnings: string[] = [];
+      try { localStorage.setItem(positionsStorageKey, JSON.stringify(nextPositions)); }
+      catch { warnings.push("Your application is available in this running page only: browser storage could not save it. Do not reload if you need to review it."); }
+      // Voluntary responses are never placed in applicant/evaluation records.
+      // This separate session-only store has no hiring-team or chat reader.
+      const identification = consentedSelfIdentification(draft.selfIdentification);
+      if (identification) {
+        try { sessionStorage.setItem(`aiccuhire-voluntary-identification:${id}`, JSON.stringify(identification)); }
+        catch { warnings.push("The application was received, but optional self-identification could not be saved."); }
+      }
+      setPositions(nextPositions);
+      setCandidateResumeFiles((files) => ({
+        ...files,
+        [id]: draft.files[0],
+        ...Object.fromEntries((applicant.resumeVersions ?? []).map((resume, index) => [resume.id, draft.files[index]])),
+      }));
+      rememberApplicationEmail(applicant.email);
+      return { id, warning: warnings.join(" ") || undefined };
+    } catch (error) {
+      return { error: error instanceof Error ? error.message : "Application could not be submitted. Please try again." };
     }
   };
   const saveStakeholderFeedback = (next: StakeholderFeedbackState) => {
@@ -1457,6 +1493,82 @@ function App() {
     } catch (error) {
       console.error("Unable to save the browser demo user directory.", error);
       return "The browser could not save this user. No changes were made.";
+    }
+    setAdminUsers(nextUsers);
+    return undefined;
+  };
+  const updateAdminUserRoles = (
+    userId: string,
+    roles: WorkspaceRole[],
+  ): string | undefined => {
+    if (!session || !hasAdminAccess(session.role, session.roles)) {
+      return "Only Admin accounts can change user access.";
+    }
+    const target = adminUsers.find((user) => user.id === userId);
+    if (!target) return "This user is no longer in the directory.";
+    const nextRoles = [...new Set(roles)];
+    if (nextRoles.length === 0) {
+      return "Select at least one access type.";
+    }
+    if (
+      target.roles.includes("Admin") &&
+      !nextRoles.includes("Admin") &&
+      !adminUsers.some(
+        (user) => user.id !== target.id && user.roles.includes("Admin"),
+      )
+    ) {
+      return "The directory must keep at least one Admin account.";
+    }
+    const nextUsers = adminUsers.map((user) =>
+      user.id === userId ? { ...user, roles: nextRoles } : user,
+    );
+    try {
+      localStorage.setItem(adminUsersStorageKey, JSON.stringify(nextUsers));
+    } catch (error) {
+      console.error("Unable to update the browser demo user directory.", error);
+      return "The browser could not save this access change. No changes were made.";
+    }
+    setAdminUsers(nextUsers);
+
+    if (target.email.toLowerCase() === session.email.toLowerCase()) {
+      const role: Role =
+        nextRoles.includes("Admin") && nextRoles.includes("Hiring Manager")
+          ? "Admin + Hiring Manager / HR"
+          : nextRoles.includes("Admin")
+            ? "Admin"
+            : nextRoles.includes("Hiring Manager")
+              ? "Hiring Manager"
+              : "Viewer";
+      const nextSession = { ...session, role, roles: nextRoles };
+      setSession(nextSession);
+      sessionStorage.setItem("talent-demo-session", JSON.stringify(nextSession));
+      if (!nextRoles.includes("Admin")) setLocation("/dashboard");
+    }
+    return undefined;
+  };
+  const deleteAdminUser = (userId: string): string | undefined => {
+    if (!session || !hasAdminAccess(session.role, session.roles)) {
+      return "Only Admin accounts can remove users.";
+    }
+    const target = adminUsers.find((user) => user.id === userId);
+    if (!target) return "This user is no longer in the directory.";
+    if (target.email.toLowerCase() === session.email.toLowerCase()) {
+      return "You cannot delete the account currently signed in.";
+    }
+    if (
+      target.roles.includes("Admin") &&
+      !adminUsers.some(
+        (user) => user.id !== target.id && user.roles.includes("Admin"),
+      )
+    ) {
+      return "The directory must keep at least one Admin account.";
+    }
+    const nextUsers = adminUsers.filter((user) => user.id !== userId);
+    try {
+      localStorage.setItem(adminUsersStorageKey, JSON.stringify(nextUsers));
+    } catch (error) {
+      console.error("Unable to remove a user from the browser demo directory.", error);
+      return "The browser could not remove this user. No changes were made.";
     }
     setAdminUsers(nextUsers);
     return undefined;
@@ -1987,6 +2099,7 @@ function App() {
     resumeLink.href = objectUrl;
     resumeLink.target = "_blank";
     resumeLink.rel = "noopener noreferrer";
+    if (!/\.pdf$/i.test(file.name)) resumeLink.download = file.name;
     resumeLink.click();
     window.setTimeout(() => URL.revokeObjectURL(objectUrl), 60_000);
   };
@@ -2999,7 +3112,13 @@ function App() {
 
   const CandidatePortal = () => {
     if (!session || session.role !== "Candidate") return AuthPage();
-    const candidateApplications = [...seedJobs].sort(
+    const submittedApplications = candidateApplicationsForEmail(positions, session.email);
+    const candidateApplications = [...(session.email.toLowerCase() === candidateDemo ? seedJobs : []), ...submittedApplications.map(({position, applicant}) => ({
+      id: applicant.id, title: position.position, company: "AiccuHire", location: position.location,
+      date: `Applied ${applicant.appliedAt}`, status: "Application received",
+      detail: "Your application was received in this browser demo.", next: "No action needed right now.",
+      resumeUpdateAvailable: false,
+    }))].sort(
       (a, b) =>
         Number(b.status === "Follow-up Requested") -
         Number(a.status === "Follow-up Requested"),
@@ -3013,11 +3132,12 @@ function App() {
               Your candidate portal
             </div>
             <h1 className="serif text-[clamp(30px,4vw,43px)] font-bold tracking-[-.055em]">
-              Good morning, Maya.
+              {session.email.toLowerCase() === candidateDemo ? "Good morning, Maya." : "Your applications"}
             </h1>
             <p className="mt-2 text-[13px] text-[#75827e]">
               Here’s where things stand with your applications.
             </p>
+            <button type="button" onClick={() => setLocation("/careers")} className="mt-3 rounded-xl bg-[#205e53] px-4 py-2 text-xs font-bold text-white">Browse open roles &amp; apply</button>
           </div>
           <div className="mb-7 grid gap-3 sm:grid-cols-3">
             <div className="rounded-2xl border border-[#e5e2d8] bg-[#fbfaf5] p-4">
@@ -3028,7 +3148,7 @@ function App() {
                 data-testid="text-application-count"
                 className="serif mt-2 text-[26px] font-bold"
               >
-                05
+                {String(candidateApplications.length).padStart(2, "0")}
               </div>
               <div className="mt-1 text-[11px] text-[#7b8781]">
                 You’re in the running
@@ -3042,13 +3162,13 @@ function App() {
                 data-testid="text-in-progress-count"
                 className="serif mt-2 text-[26px] font-bold"
               >
-                03
+                {String(candidateApplications.filter((job) => ["In review", "Interviewing", "Follow-up Requested"].includes(job.status)).length).padStart(2, "0")}
               </div>
               <div className="mt-1 text-[11px] text-[#7b8781]">
                 Being reviewed or interviewed
               </div>
             </div>
-            <button
+            {session.email.toLowerCase() === candidateDemo && <button
               type="button"
               data-testid="button-view-comprehensive-resume"
               onClick={() => openDialog("comprehensive-resume")}
@@ -3068,7 +3188,7 @@ function App() {
                 </span>
               </span>
               <ArrowRight size={16} className="shrink-0 text-[#53776a]" />
-            </button>
+            </button>}
           </div>
           <div className="mb-3 flex items-center justify-between">
             <h2 className="serif text-[21px] font-bold tracking-[-.035em]">
@@ -3118,7 +3238,7 @@ function App() {
                 </div>
                 <div className="mt-4 flex flex-wrap gap-2 border-t border-[#eeece4] pt-3">
                   {(job.status === "Application received" ||
-                    job.status === "Follow-up Requested") && (
+                    job.status === "Follow-up Requested") && !job.id.startsWith("self-") && (
                     <button
                       type="button"
                       data-testid={`button-resume-${job.id}`}
@@ -3162,6 +3282,13 @@ function App() {
                     </button>
                   )}
                 </div>
+                {submittedApplications.find(({applicant}) => applicant.id === job.id) && (
+                  <ApplicantSubmittedDetails
+                    applicant={submittedApplications.find(({applicant}) => applicant.id === job.id)!.applicant}
+                    hasResumeFile={(id) => !!candidateResumeFiles[id]}
+                    onOpenResume={openApplicantResume}
+                  />
+                )}
               </article>
             ))}
           </div>
@@ -3596,6 +3723,8 @@ function App() {
         users={adminUsers}
         settings={adminSettings}
         onAddUser={addAdminUser}
+        onUpdateUserRoles={updateAdminUserRoles}
+        onDeleteUser={deleteAdminUser}
         onSaveSettings={saveAdminSettings}
         onBackToDashboard={() => setLocation("/dashboard")}
         onSignOut={signOut}
@@ -3610,6 +3739,15 @@ function App() {
           <ErrorBoundary resetKey={window.location.pathname}>
             <Switch>
               <Route path="/">{AuthPage()}</Route>
+              <Route path="/careers">
+                <PublicCareersPage positions={positions} initialEmail={session?.role === "Candidate" ? session.email : applicationEmail} resumeFiles={candidateResumeFiles} onSubmit={submitSelfApplication}
+                  onBack={() => setLocation(session?.role === "Candidate" ? "/candidate" : "/")}
+                  onViewApplications={(email) => { rememberApplicationEmail(email); setLocation("/applications"); }} />
+              </Route>
+              <Route path="/applications">
+                <SelfApplicationRecords positions={positions} email={applicationEmail} onEmailChange={rememberApplicationEmail}
+                  hasResumeFile={(id) => !!candidateResumeFiles[id]} onOpenResume={openApplicantResume} onBrowse={() => setLocation("/careers")} />
+              </Route>
               <Route path="/candidate/interview">
                 {CandidateInterviewPage()}
               </Route>
