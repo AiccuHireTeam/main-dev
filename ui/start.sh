@@ -6,6 +6,16 @@ export PATH="/Users/sabyasachisengupta/.nvm/versions/node/v24.15.0/bin:$PATH"
 # Always run from the ui directory
 cd "$(dirname "$0")" || exit 1
 
+# Auto-heal Replit platform exclusions in pnpm-workspace.yaml if pushed from Replit
+if grep -q 'darwin-arm64.*"-' pnpm-workspace.yaml 2>/dev/null; then
+    echo "🔧 Removing Replit platform exclusions from pnpm-workspace.yaml..."
+    sed -i '' -E '/# replit uses linux-x64 only/d; /"(esbuild|lightningcss|@tailwindcss\/oxide|rollup|@expo\/ngrok-bin)>.*": "-"/d; s/esbuild: false/esbuild: true/' pnpm-workspace.yaml
+    pnpm install
+elif [ ! -d "node_modules/.pnpm" ] || ! ls node_modules/.pnpm/@esbuild+darwin-* >/dev/null 2>&1; then
+    echo "📦 Installing missing workspace dependencies..."
+    pnpm install
+fi
+
 echo "========================================================"
 echo "🚀 Starting AICCU Hire Workspace Applications..."
 echo "========================================================"
